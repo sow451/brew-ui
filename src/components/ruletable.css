@@ -1,0 +1,120 @@
+/* Rule Table Container */
+.rule-table-container {
+    margin: 20px auto;
+    max-width: 90%;
+  }
+  
+  /* Table Styles */
+  .rule-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+  }
+  
+  .rule-table th {
+    background-color: #007BFF; /* Blue header background */
+    color: white; /* White text */
+    font-weight: bold;
+    text-align: left;
+  }
+  
+  .rule-table th, .rule-table td {
+    padding: 12px; /* Add padding for better readability */
+    border: 1px solid #ddd; /* Border around cells */
+  }
+  
+  .rule-table tr:nth-child(even) {
+    background-color: #f9f9f9; /* Alternate row colors */
+  }
+  
+  .rule-table tr:hover {
+    background-color: #f1f1f1; /* Highlight row on hover */
+  }
+  
+  /* Edit Button Styles */
+  .edit-btn {
+    background-color: #28a745; /* Green background for edit button */
+    color: white; /* White text */
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .edit-btn:hover {
+    background-color: #218838; /* Darker green on hover */
+  }
+  
+  /* Modal Styles */
+  .modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000; /* Ensure modal appears above other elements */
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px; /* Rounded corners */
+    box-shadow: rgba(0,0,0,0.1) 0px 4px 6px -1px, rgba(0,0,0,0.06) 0px 2px 4px -1px; /* Subtle shadow for depth */
+  }
+  
+  .modal h3 {
+    margin-top: 0; /* Remove top margin for modal title */
+  }
+  
+  .modal input,
+  .modal textarea {
+    width: calc(100% - 20px); /* Full width with padding adjustment */
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+  
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+  
+  .modal button {
+    padding: 8px;
+  }
+  
+  /* Cancel Button Styles */
+  .cancel-btn {
+    background-color: #e74c3c; /* Red cancel button */
+    color: white;
+  }
+  
+  /* Save Button Styles */
+  .save-btn {
+    background-color: #3498db; /* Blue save button */
+    color: white;
+  }
+  
+/* Responsive Design for Smaller Screens */
+@media (max-width: 768px) {
+    .rule-table-container {
+      max-width: 100%;
+      overflow-x: auto; /* Enable horizontal scrolling for smaller screens */
+    }
+  
+    .rule-table th, .rule-table td {
+      font-size: 14px; /* Adjust font size for smaller screens */
+      padding: 8px; /* Reduce padding for compact display */
+    }
+  
+    .modal {
+      width: 90%; /* Adjust modal width for smaller screens */
+      max-height: 80vh; /* Ensure modal fits within the viewport */
+      overflow-y: auto; /* Enable scrolling if content exceeds modal height */
+    }
+  
+    .modal input, .modal textarea {
+      font-size: 14px; /* Adjust input font size for smaller screens */
+    }
+  
+    .modal-actions button {
+      font-size: 14px; /* Adjust button font size for smaller screens */
+      padding: 6px; /* Compact button padding */
+    }
+  }
+  

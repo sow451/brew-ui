@@ -1,27 +1,25 @@
 import React from 'react';
+import './ruletable.css';
+
 export default function RuleTable({
-rules, 
-setRules,
-editingIndex, 
-setEditingIndex,
-formData, 
-setFormData,
-handleEdit,
-handleChange,
-handleNestedChange,
-handleSave
-
+  rules,
+  editingIndex,
+  setEditingIndex, // Receive this prop from App.js
+  formData,
+  handleEdit,
+  handleChange,
+  handleNestedChange,
+  handleSave
 }) {
-
-return (
-    <>
-      <table>
+  return (
+    <div className="rule-table-container">
+      <table className="rule-table">
         <thead>
           <tr>
-            <th>ID</th>
-            <th>Rule</th>
+            <th>#</th>
+            <th>Rule ID</th>
+            <th>Checkpoint Parameter</th>
             <th>Category</th>
-            <th>Value</th>
             <th>Description</th>
             <th>Actions</th>
           </tr>
@@ -29,13 +27,15 @@ return (
         <tbody>
           {rules.map((rule, index) => (
             <tr key={rule.ruleId}>
+              <td>{index + 1}</td> {/* Row numbering */}
               <td>{rule.ruleId}</td>
               <td>{rule.ruleCheckpointParameter}</td>
               <td>{rule.ruleTemplateGroupCategory}</td>
-              <td>{rule.ruleConfig.value}</td>
-              <td>{rule.ruleMetadata.ruleDescription}</td>
+              <td>{rule.ruleMetadata?.ruleDescription || 'N/A'}</td>
               <td>
-                <button onClick={() => handleEdit(index)}>Edit</button>
+                <button className="edit-btn" onClick={() => handleEdit(index)}>
+                  Edit
+                </button>
               </td>
             </tr>
           ))}
@@ -44,34 +44,40 @@ return (
 
       {editingIndex !== null && (
         <div className="modal">
-          <h2>Edit Rule</h2>
-          <input
-            name="ruleCheckpointParameter"
-            value={formData.ruleCheckpointParameter}
-            onChange={handleChange}
-            placeholder="Rule Name"
-          />
-          <input
-            name="ruleTemplateGroupCategory"
-            value={formData.ruleTemplateGroupCategory}
-            onChange={handleChange}
-            placeholder="Category"
-          />
-          <input
-            name="value"
-            value={formData.ruleConfig.value}
-            onChange={(e) => handleNestedChange(e, 'ruleConfig')}
-            placeholder="Value"
-          />
-          <input
-            name="ruleDescription"
-            value={formData.ruleMetadata.ruleDescription}
-            onChange={(e) => handleNestedChange(e, 'ruleMetadata')}
-            placeholder="Description"
-          />
-          <button onClick={handleSave}>Save</button>
+          <h3>Edit Rule</h3>
+
+          {/* Core Fields */}
+          <div className="form-group">
+            <label>Checkpoint Parameter:</label>
+            <input
+              name="ruleCheckpointParameter"
+              value={formData.ruleCheckpointParameter || ''}
+              onChange={handleChange}
+            />
+          </div>
+
+          {/* Metadata Fields */}
+          <div className="form-group">
+            <label>Description:</label>
+            <textarea
+              name="ruleDescription"
+              value={formData.ruleMetadata?.ruleDescription || ''}
+              onChange={(e) => handleNestedChange(e, 'ruleMetadata')}
+            />
+          </div>
+
+          {/* Modal Actions */}
+          <div className="modal-actions">
+            {/* Use setEditingIndex to close the modal */}
+            <button className="cancel-btn" onClick={() => setEditingIndex(null)}>
+              Cancel
+            </button>
+            <button className="save-btn" onClick={handleSave}>
+              Save Changes
+            </button>
+          </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

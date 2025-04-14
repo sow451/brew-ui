@@ -3,57 +3,81 @@ import './App.css';
 import breRules from './data/breRules';
 import RuleTable from './components/ruletable';
 
-
-
 function App() {
-
-  const [rules, setRules] = useState([breRules]); //Start with an array that contains 1 rule — the sample rule — and let me update it later.
-  const [editingIndex, setEditingIndex] = useState(null); //Keep track of which rule I'm editing (if any), and start with no rule selected.
-  const [formData, setFormData] = useState({}); //Set formData as a scratchpad where you hold the current version of a rule the user is editing, before saving it into the main list.
+  const [policyData, setPolicyData] = useState(breRules);
+  const [editingIndex, setEditingIndex] = useState(null);
+  const [formData, setFormData] = useState({});
 
   const handleEdit = (index) => {
     setEditingIndex(index);
-    setFormData(rules[index]);
+    setFormData({
+      ...policyData.ruleUnitDtoList[index],
+      ruleConfig: policyData.ruleUnitDtoList[index].ruleConfig || {},
+      ruleMetadata: policyData.ruleUnitDtoList[index].ruleMetadata || {}
+    });
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   const handleNestedChange = (e, parentKey) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
+    setFormData((prev) => ({
+      ...prev,
       [parentKey]: {
-        ...formData[parentKey],
+        ...prev[parentKey],
         [name]: value
       }
-    });
+    }));
   };
 
   const handleSave = () => {
-    const updatedRules = [...rules];
+    const updatedRules = [...policyData.ruleUnitDtoList];
     updatedRules[editingIndex] = formData;
-    setRules(updatedRules);
+
+    setPolicyData((prev) => ({
+      ...prev,
+      ruleUnitDtoList: updatedRules
+    }));
+
     setEditingIndex(null);
+  };
+
+  const handleDownload = () => {
+    const dataStr = JSON.stringify(policyData, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${policyData.policyDto.brePolicyName.replace(/ /g, '_')}_edited.json`;
+    link.click();
   };
 
   return (
     <div className="App">
-    <h1>Rule Manager</h1>
-    <RuleTable
-      rules={rules}
-      formData={formData}
-      editingIndex={editingIndex}
-      setEditingIndex={setEditingIndex}
-      setFormData={setFormData}
-      handleEdit={handleEdit}
-      handleChange={handleChange}
-      handleNestedChange={handleNestedChange}
-      handleSave={handleSave}
-    />
-  </div>
+      <div className="header">
+        <h1>Rule Editor</h1>
+        <h2>{policyData.policyDto.brePolicyName}</h2>
+      </div>
+      <button className="download-btn" onClick={handleDownload}>
+        Download Edited Policy
+      </button>
+      <RuleTable
+        rules={policyData.ruleUnitDtoList}
+        editingIndex={editingIndex}
+        setEditingIndex={setEditingIndex} // Pass this prop to RuleTable
+        formData={formData}
+        handleEdit={handleEdit}
+        handleChange={handleChange}
+        handleNestedChange={handleNestedChange}
+        handleSave={handleSave}
+      />
+    </div>
   );
 }
 
