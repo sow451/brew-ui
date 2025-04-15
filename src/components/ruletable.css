@@ -1,120 +1,148 @@
-/* Rule Table Container */
 .rule-table-container {
-    margin: 20px auto;
-    max-width: 90%;
-  }
-  
-  /* Table Styles */
-  .rule-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 20px;
-  }
-  
-  .rule-table th {
-    background-color: #007BFF; /* Blue header background */
-    color: white; /* White text */
-    font-weight: bold;
-    text-align: left;
-  }
-  
-  .rule-table th, .rule-table td {
-    padding: 12px; /* Add padding for better readability */
-    border: 1px solid #ddd; /* Border around cells */
-  }
-  
-  .rule-table tr:nth-child(even) {
-    background-color: #f9f9f9; /* Alternate row colors */
-  }
-  
-  .rule-table tr:hover {
-    background-color: #f1f1f1; /* Highlight row on hover */
-  }
-  
-  /* Edit Button Styles */
-  .edit-btn {
-    background-color: #28a745; /* Green background for edit button */
-    color: white; /* White text */
-    border: none;
-    padding: 8px 12px;
-    border-radius: 4px;
-    cursor: pointer;
-  }
-  
-  .edit-btn:hover {
-    background-color: #218838; /* Darker green on hover */
-  }
-  
-  /* Modal Styles */
-  .modal {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 1000; /* Ensure modal appears above other elements */
-    background-color: white;
-    padding: 20px;
-    border-radius: 8px; /* Rounded corners */
-    box-shadow: rgba(0,0,0,0.1) 0px 4px 6px -1px, rgba(0,0,0,0.06) 0px 2px 4px -1px; /* Subtle shadow for depth */
-  }
-  
-  .modal h3 {
-    margin-top: 0; /* Remove top margin for modal title */
-  }
-  
-  .modal input,
-  .modal textarea {
-    width: calc(100% - 20px); /* Full width with padding adjustment */
-    padding: 10px;
-    margin-bottom: 10px;
-  }
-  
-  .modal-actions {
-    display: flex;
-    justify-content: flex-end;
-  }
-  
-  .modal button {
-    padding: 8px;
-  }
-  
-  /* Cancel Button Styles */
-  .cancel-btn {
-    background-color: #e74c3c; /* Red cancel button */
-    color: white;
-  }
-  
-  /* Save Button Styles */
-  .save-btn {
-    background-color: #3498db; /* Blue save button */
-    color: white;
-  }
-  
-/* Responsive Design for Smaller Screens */
-@media (max-width: 768px) {
-    .rule-table-container {
-      max-width: 100%;
-      overflow-x: auto; /* Enable horizontal scrolling for smaller screens */
-    }
-  
-    .rule-table th, .rule-table td {
-      font-size: 14px; /* Adjust font size for smaller screens */
-      padding: 8px; /* Reduce padding for compact display */
-    }
-  
-    .modal {
-      width: 90%; /* Adjust modal width for smaller screens */
-      max-height: 80vh; /* Ensure modal fits within the viewport */
-      overflow-y: auto; /* Enable scrolling if content exceeds modal height */
-    }
-  
-    .modal input, .modal textarea {
-      font-size: 14px; /* Adjust input font size for smaller screens */
-    }
-  
-    .modal-actions button {
-      font-size: 14px; /* Adjust button font size for smaller screens */
-      padding: 6px; /* Compact button padding */
-    }
-  }
-  
+  margin: 20px auto;
+  max-width: 95%;
+}
+
+.rule-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.rule-table th {
+  background-color: #007BFF;
+  color: white;
+  padding: 12px;
+  text-align: left;
+}
+
+.rule-table td {
+  padding: 12px;
+  border-bottom: 1px solid #ecf0f1;
+}
+
+.rule-table tr:hover {
+  background-color: #f8f9fa;
+}
+
+.edit-btn {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.improved-modal {
+  background: white;
+  padding: 0;
+  border-radius: 10px;
+  width: 520px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 0 24px rgba(0,0,0,0.18);
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  background: #007BFF;
+  color: white;
+  padding: 18px 24px;
+  border-radius: 10px 10px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.3em;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.7em;
+  cursor: pointer;
+  margin-left: 10px;
+}
+
+.modal-body {
+  padding: 24px;
+  background: #f8f9fa;
+  flex: 1;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 7px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.form-group.nested {
+  background: #eaf1fb;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.array-item {
+  margin-left: 20px;
+  margin-bottom: 8px;
+}
+
+.array-index {
+  font-size: 12px;
+  color: #888;
+  margin-right: 5px;
+}
+
+.modal-actions {
+  padding: 16px 24px;
+  background: #f4f4f4;
+  border-radius: 0 0 10px 10px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.save-btn {
+  background-color: #007BFF;
+  color: white;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+}
+
+.cancel-btn {
+  background-color: #6c757d;
+  color: white;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+}
