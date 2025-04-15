@@ -36,6 +36,18 @@ function App() {
     link.click();
   };
 
+  // Delete rule
+  const handleDelete = (index) => {
+    if (!window.confirm('Are you sure you want to delete this rule?')) return;
+    const updatedRules = [...policyData.ruleUnitDtoList];
+    updatedRules.splice(index, 1);
+    setPolicyData(prev => ({
+      ...prev,
+      ruleUnitDtoList: updatedRules
+    }));
+    setEditingIndex(null);
+  };
+
   return (
     <div className="App">
       <div className="header">
@@ -74,6 +86,7 @@ function App() {
             }));
             setEditingIndex(null);
           }}
+          handleDelete={handleDelete}
         />
       )}
     </div>

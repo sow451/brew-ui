@@ -61,7 +61,8 @@ export default function RuleTable({
   setEditingIndex,
   formData,
   setFormData,
-  handleSave
+  handleSave,
+  handleDelete
 }) {
   // Deep change handler
   const handleDeepChange = (path, value) => {
@@ -103,9 +104,15 @@ export default function RuleTable({
               <td>{rule.ruleCheckpointParameter}</td>
               <td>{rule.ruleTemplateGroupCategory}</td>
               <td>{rule.ruleMetadata?.ruleDescription || 'N/A'}</td>
-              <td>
+              <td className="actions-cell">
+                {/* Edit Button */}
                 <button className="edit-btn" onClick={() => handleEdit(index)}>
                   Edit
+                </button>
+
+                {/* Delete Button */}
+                <button className="delete-btn" onClick={() => handleDelete(index)}>
+                  Delete
                 </button>
               </td>
             </tr>
