@@ -62,7 +62,10 @@ export default function RuleTable({
   formData,
   setFormData,
   handleSave,
-  handleDelete
+  handleDelete,
+  adding,
+  setAdding,
+  handleSaveNewRule
 }) {
   // Deep change handler
   const handleDeepChange = (path, value) => {
@@ -105,12 +108,9 @@ export default function RuleTable({
               <td>{rule.ruleTemplateGroupCategory}</td>
               <td>{rule.ruleMetadata?.ruleDescription || 'N/A'}</td>
               <td className="actions-cell">
-                {/* Edit Button */}
                 <button className="edit-btn" onClick={() => handleEdit(index)}>
                   Edit
                 </button>
-
-                {/* Delete Button */}
                 <button className="delete-btn" onClick={() => handleDelete(index)}>
                   Delete
                 </button>
@@ -120,6 +120,7 @@ export default function RuleTable({
         </tbody>
       </table>
 
+      {/* Edit Modal */}
       {editingIndex !== null && (
         <div className="modal-overlay">
           <div className="modal improved-modal">
@@ -136,6 +137,29 @@ export default function RuleTable({
               </button>
               <button className="save-btn" onClick={() => handleSave(formData)}>
                 Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Rule Modal */}
+      {adding && (
+        <div className="modal-overlay">
+          <div className="modal improved-modal">
+            <div className="modal-header">
+              <h2>Add Rule</h2>
+              <button className="close-btn" onClick={() => setAdding(false)}>&times;</button>
+            </div>
+            <div className="modal-body">
+              {renderFields(formData, '', handleDeepChange)}
+            </div>
+            <div className="modal-actions">
+              <button className="cancel-btn" onClick={() => setAdding(false)}>
+                Cancel
+              </button>
+              <button className="save-btn" onClick={() => handleSaveNewRule(formData)}>
+                Add Rule
               </button>
             </div>
           </div>

@@ -6,6 +6,7 @@ function App() {
   const [policyData, setPolicyData] = useState(null);
   const [editingIndex, setEditingIndex] = useState(null);
   const [formData, setFormData] = useState({});
+  const [adding, setAdding] = useState(false);
 
   // Upload JSON
   const handleUpload = (e) => {
@@ -48,6 +49,28 @@ function App() {
     setEditingIndex(null);
   };
 
+  // Add rule
+  const handleAddRule = () => {
+    setFormData({
+      ruleId: `rule-${Date.now()}`,
+      ruleCheckpointParameter: '',
+      ruleTemplateGroupCategory: '',
+      ruleMetadata: { ruleDescription: '' },
+      ruleConfig: {},
+      operand: {},
+    });
+    setAdding(true);
+  };
+
+  const handleSaveNewRule = (newRule) => {
+    setPolicyData(prev => ({
+      ...prev,
+      ruleUnitDtoList: [...prev.ruleUnitDtoList, newRule]
+    }));
+    setAdding(false);
+    setFormData({});
+  };
+
   return (
     <div className="App">
       <div className="header">
@@ -65,9 +88,14 @@ function App() {
           />
         </label>
         {policyData && (
-          <button className="download-btn" onClick={handleDownload}>
-            Download Policy
-          </button>
+          <>
+            <button className="add-btn" onClick={handleAddRule}>
+              + Add Rule
+            </button>
+            <button className="download-btn" onClick={handleDownload}>
+              Download Policy
+            </button>
+          </>
         )}
       </div>
       {policyData && (
@@ -87,6 +115,9 @@ function App() {
             setEditingIndex(null);
           }}
           handleDelete={handleDelete}
+          adding={adding}
+          setAdding={setAdding}
+          handleSaveNewRule={handleSaveNewRule}
         />
       )}
     </div>
