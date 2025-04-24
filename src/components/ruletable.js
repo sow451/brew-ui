@@ -1,23 +1,25 @@
 import React, { useState } from 'react';
 import './ruletable.css';
 
-const ALLOWED_PATHS = [
-  /(^|\.)value$/, // any field named 'value' at any nesting
-  /(^|\.)operatorValue$/, // any field named 'operatorValue' at any nesting
-  /^ruleString$/,
-  /^ruleMetadata\.ruleDescription$/,
-  /^ruleMetadata\.failureDescription$/,
-  /^ruleConfig(\..+)?$/, // allow everything in ruleConfig
-  /^ruleActionString$/,
-  /^importList(\.\d+)?$/, // importList and its items
-  /^operand\.operandDefinition\.\d+\.orderOfOccurence\.\d+\.fullPath$/,
-  /^operand\.operandDefinition\.\d+\.orderOfOccurence\.\d+\.displayName$/
-];
-
+// Editable fields logic
 function isEditable(path) {
-  // Convert [0] array notation to .0 for regex matching
   const normalized = path.replace(/\[(\d+)\]/g, '.$1');
-  return ALLOWED_PATHS.some(pattern => pattern.test(normalized));
+  return (
+    // Everything in ruleConfig
+    normalized.startsWith('ruleConfig') ||
+    // Everything in any orderOfOccurence array (at any depth)
+    /\.orderOfOccurence\.\d+\./.test(normalized) ||
+    // Any field named 'value' or 'operatorValue' at any depth
+    /\.?value$/.test(normalized) ||
+    /\.?operatorValue$/.test(normalized) ||
+    // Specific fields
+    normalized === 'ruleString' ||
+    normalized === 'ruleMetadata.ruleDescription' ||
+    normalized === 'ruleMetadata.failureDescription' ||
+    normalized === 'ruleActionString' ||
+    normalized === 'importList' ||
+    /^importList\.\d+$/.test(normalized)
+  );
 }
 
 // Collapsible field group for nested objects/arrays
@@ -41,7 +43,7 @@ function renderEditableFields(obj, path, handleDeepChange, level = 0) {
     const currentPath = path ? `${path}.${key}` : key;
 
     if (Array.isArray(value)) {
-      // For importList and allowedList, make each string item editable
+      // For importList, make each string item editable
       const isImportList = currentPath.endsWith('importList');
       return (
         <Collapsible key={currentPath} label={key} defaultOpen={level < 1}>

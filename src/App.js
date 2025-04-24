@@ -7,6 +7,7 @@ function App() {
   const [editingIndex, setEditingIndex] = useState(null);
   const [formData, setFormData] = useState({});
   const [adding, setAdding] = useState(false);
+  const [activeTab, setActiveTab] = useState('rules');
 
   // Upload JSON
   const handleUpload = (e) => {
@@ -55,9 +56,26 @@ function App() {
       ruleId: `rule-${Date.now()}`,
       ruleCheckpointParameter: '',
       ruleTemplateGroupCategory: '',
+      ruleType: '',
+      ruleConfig: { value: '' },
       ruleMetadata: { ruleDescription: '' },
-      ruleConfig: {},
-      operand: {},
+      operand: {
+        operandType: '',
+        value: '',
+        operandDefinition: [
+          {
+            operandType: '',
+            value: '',
+            operandDefinition: null,
+            operation: null
+          }
+        ],
+        operation: {
+          operatorType: '',
+          operatorValue: ''
+        }
+      },
+      isActive: true
     });
     setAdding(true);
   };
@@ -70,6 +88,16 @@ function App() {
     setAdding(false);
     setFormData({});
   };
+
+  // Filter rules based on tab
+  let filteredRules = [];
+  if (policyData) {
+    filteredRules = policyData.ruleUnitDtoList.filter(rule =>
+      activeTab === 'rules'
+        ? rule.ruleTemplateGroupCategory?.toLowerCase() !== 'deviation parameter'
+        : rule.ruleTemplateGroupCategory?.toLowerCase() === 'deviation parameter'
+    );
+  }
 
   return (
     <div className="App">
@@ -99,26 +127,52 @@ function App() {
         )}
       </div>
       {policyData && (
-        <RuleTable
-          rules={policyData.ruleUnitDtoList || []}
-          editingIndex={editingIndex}
-          setEditingIndex={setEditingIndex}
-          formData={formData}
-          setFormData={setFormData}
-          handleSave={(updatedRule) => {
-            const updatedRules = [...policyData.ruleUnitDtoList];
-            updatedRules[editingIndex] = updatedRule;
-            setPolicyData(prev => ({
-              ...prev,
-              ruleUnitDtoList: updatedRules
-            }));
-            setEditingIndex(null);
-          }}
-          handleDelete={handleDelete}
-          adding={adding}
-          setAdding={setAdding}
-          handleSaveNewRule={handleSaveNewRule}
-        />
+        <div className="tabs-container">
+          <div className="tabs">
+            <button
+              className={`tab ${activeTab === 'rules' ? 'active-tab' : ''}`}
+              onClick={() => setActiveTab('rules')}
+            >
+              Rules
+            </button>
+            <button
+              className={`tab ${activeTab === 'deviations' ? 'active-tab' : ''}`}
+              onClick={() => setActiveTab('deviations')}
+            >
+              Deviations
+            </button>
+          </div>
+          <RuleTable
+            rules={filteredRules}
+            editingIndex={editingIndex}
+            setEditingIndex={setEditingIndex}
+            formData={formData}
+            setFormData={setFormData}
+            handleSave={(updatedRule) => {
+              const updatedRules = [...policyData.ruleUnitDtoList];
+              // Find actual index in the original array for correct update
+              const globalIndex = policyData.ruleUnitDtoList.findIndex(
+                rule => rule.ruleId === updatedRule.ruleId
+              );
+              updatedRules[globalIndex] = updatedRule;
+              setPolicyData(prev => ({
+                ...prev,
+                ruleUnitDtoList: updatedRules
+              }));
+              setEditingIndex(null);
+            }}
+            handleDelete={(index) => {
+              // Find actual index in the original array for correct delete
+              const globalIndex = policyData.ruleUnitDtoList.findIndex(
+                rule => rule.ruleId === filteredRules[index].ruleId
+              );
+              handleDelete(globalIndex);
+            }}
+            adding={adding}
+            setAdding={setAdding}
+            handleSaveNewRule={handleSaveNewRule}
+          />
+        </div>
       )}
     </div>
   );
