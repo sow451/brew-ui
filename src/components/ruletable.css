@@ -278,3 +278,12 @@
   padding-bottom: 8px;
 }
 
+.actions-cell {
+  text-align: right;           /* Aligns content to the right in the cell */
+  vertical-align: middle;      /* Vertically centers the buttons */
+  padding-right: 0.5rem;       /* Optional: adjust for spacing */
+}
+
+.actions-cell button {
+  margin-left: 8px;
+}

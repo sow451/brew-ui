@@ -1,18 +1,19 @@
 import React, { useState } from 'react';
+import {
+  Dialog, DialogTitle, DialogContent, DialogActions,
+  Button, TextField, Box, Typography, IconButton
+} from '@mui/material';
+import { ExpandMore, ExpandLess } from '@mui/icons-material';
 import './ruletable.css';
 
 // Editable fields logic
 function isEditable(path) {
   const normalized = path.replace(/\[(\d+)\]/g, '.$1');
   return (
-    // Everything in ruleConfig
     normalized.startsWith('ruleConfig') ||
-    // Everything in any orderOfOccurence array (at any depth)
     /\.orderOfOccurence\.\d+\./.test(normalized) ||
-    // Any field named 'value' or 'operatorValue' at any depth
     /\.?value$/.test(normalized) ||
     /\.?operatorValue$/.test(normalized) ||
-    // Specific fields
     normalized === 'ruleString' ||
     normalized === 'ruleMetadata.ruleDescription' ||
     normalized === 'ruleMetadata.failureDescription' ||
@@ -22,72 +23,123 @@ function isEditable(path) {
   );
 }
 
-// Collapsible field group for nested objects/arrays
-function Collapsible({ label, children, defaultOpen = false }) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div className="collapsible">
-      <div className="collapsible-header" onClick={() => setOpen(o => !o)}>
-        <span className="collapsible-arrow">{open ? '▼' : '▶'}</span>
-        <span className="collapsible-label">{label}</span>
-      </div>
-      {open && <div className="collapsible-content">{children}</div>}
-    </div>
-  );
+// Flatten all fields into {label, value, path, editable, level, isCollapsible, children}
+function flattenFields(obj, path = '', level = 0) {
+  let rows = [];
+  Object.entries(obj).forEach(([key, value]) => {
+    const currentPath = path ? `${path}.${key}` : key;
+    if (Array.isArray(value)) {
+      value.forEach((item, idx) => {
+        if (typeof item !== 'object' || item === null) {
+          rows.push({
+            label: `${key} [${idx}]`,
+            value: item,
+            path: `${currentPath}[${idx}]`,
+            editable: isEditable(`${currentPath}[${idx}]`),
+            level
+          });
+        } else {
+          rows.push({
+            label: `${key} [${idx}]`,
+            isCollapsible: true,
+            level,
+            children: flattenFields(item, `${currentPath}[${idx}]`, level + 1)
+          });
+        }
+      });
+    } else if (typeof value === 'object' && value !== null) {
+      rows.push({
+        label: key,
+        isCollapsible: true,
+        level,
+        children: flattenFields(value, currentPath, level + 1)
+      });
+    } else {
+      rows.push({
+        label: key,
+        value,
+        path: currentPath,
+        editable: isEditable(currentPath),
+        level
+      });
+    }
+  });
+  return rows;
 }
 
-function renderEditableFields(obj, path, handleDeepChange, level = 0) {
-  if (typeof obj !== 'object' || obj === null) return null;
+function RenderGridRows({ rows, handleDeepChange }) {
+  const [openMap, setOpenMap] = useState({});
 
-  return Object.entries(obj).map(([key, value]) => {
-    const currentPath = path ? `${path}.${key}` : key;
+  const handleToggle = (label, level) => {
+    setOpenMap(prev => ({
+      ...prev,
+      [label + level]: !prev[label + level]
+    }));
+  };
 
-    if (Array.isArray(value)) {
-      // For importList, make each string item editable
-      const isImportList = currentPath.endsWith('importList');
+  return rows.map((row, idx) => {
+    if (row.isCollapsible) {
+      const isOpen = openMap[row.label + row.level] ?? row.level < 1;
       return (
-        <Collapsible key={currentPath} label={key} defaultOpen={level < 1}>
-          {value.map((item, idx) => (
-            <div className="array-item" key={`${currentPath}[${idx}]`}>
-              {isImportList && typeof item !== 'object' ? (
-                <input
-                  type="text"
-                  value={item ?? ''}
-                  onChange={e => handleDeepChange(`${currentPath}[${idx}]`, e.target.value)}
-                  className={isEditable(`${currentPath}[${idx}]`) ? '' : 'read-only-field'}
-                  disabled={!isEditable(`${currentPath}[${idx}]`)}
-                />
-              ) : (
-                <Collapsible label={`[${idx}]`} defaultOpen={level < 1}>
-                  {renderEditableFields(item, `${currentPath}[${idx}]`, handleDeepChange, level + 2)}
-                </Collapsible>
-              )}
-            </div>
-          ))}
-        </Collapsible>
+        <React.Fragment key={row.label + idx}>
+          <Box
+            sx={{
+              gridColumn: '1 / span 2',
+              display: 'flex',
+              alignItems: 'center',
+              pl: `${row.level * 2}em`,
+              cursor: 'pointer',
+              userSelect: 'none',
+              mb: 0.5
+            }}
+            onClick={() => handleToggle(row.label, row.level)}
+          >
+            <IconButton size="small">
+              {isOpen ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
+            </IconButton>
+            <Typography variant="subtitle2" sx={{ fontWeight: 500 }}>{row.label}</Typography>
+          </Box>
+          {isOpen && <RenderGridRows rows={row.children} handleDeepChange={handleDeepChange} />}
+        </React.Fragment>
       );
     }
-
-    if (typeof value === 'object' && value !== null) {
-      return (
-        <Collapsible key={currentPath} label={key} defaultOpen={level < 1}>
-          {renderEditableFields(value, currentPath, handleDeepChange, level + 1)}
-        </Collapsible>
-      );
-    }
-
-    const editable = isEditable(currentPath);
     return (
-      <div className="form-group" key={currentPath} style={{ marginLeft: `${level * 16}px` }}>
-        <label>{key}:</label>
-        <input
-          type="text"
-          value={value ?? ''}
-          onChange={e => handleDeepChange(currentPath, e.target.value)}
-          disabled={!editable}
-          className={editable ? '' : 'read-only-field'}
-        />
-      </div>
+      <React.Fragment key={row.path}>
+        <Box
+          sx={{
+            gridColumn: 1,
+            display: 'flex',
+            alignItems: 'center',
+            pl: `${row.level * 2}em`,
+            whiteSpace: 'nowrap'
+          }}
+          component="label"
+          htmlFor={row.path}
+        >
+          {row.label}:
+        </Box>
+        <Box
+          sx={{
+            gridColumn: 2,
+            display: 'flex',
+            justifyContent: 'flex-end'
+          }}
+        >
+          <TextField
+            id={row.path}
+            size="small"
+            value={row.value ?? ''}
+            onChange={e => handleDeepChange(row.path, e.target.value)}
+            disabled={!row.editable}
+            className={row.editable ? '' : 'read-only-field'}
+            sx={{
+              width: 400,
+              background: row.editable ? 'white' : '#f8f9fa'
+            }}
+            inputProps={{ style: { textAlign: 'left' } }}
+          />
+        </Box>
+      </React.Fragment>
     );
   });
 }
@@ -121,6 +173,20 @@ export default function RuleTable({
     setEditingIndex(index);
     setFormData(JSON.parse(JSON.stringify(rules[index])));
   };
+
+  // Get the ruleCheckpointParameter and category for the editing rule
+  const editingRule =
+    editingIndex !== null && rules[editingIndex]
+      ? rules[editingIndex]
+      : null;
+  const editingRuleName = editingRule?.ruleCheckpointParameter || '';
+  const isDeviation = editingRule?.ruleTemplateGroupCategory?.toLowerCase() === 'deviation parameter';
+
+  // Collect all fields as rows for the grid
+  const rows =
+    editingIndex !== null && formData
+      ? flattenFields(formData, '', 0)
+      : [];
 
   return (
     <div className="rule-table-container">
@@ -157,50 +223,98 @@ export default function RuleTable({
       </table>
 
       {/* Edit Modal */}
-      {editingIndex !== null && (
-        <div className="modal-overlay">
-          <div className="modal improved-modal">
-            <div className="modal-header">
-              <h2>Edit Rule</h2>
-              <button className="close-btn" onClick={() => setEditingIndex(null)}>&times;</button>
-            </div>
-            <div className="modal-body">
-              {renderEditableFields(formData, '', handleDeepChange)}
-            </div>
-            <div className="modal-actions fixed-actions">
-              <button className="cancel-btn" onClick={() => setEditingIndex(null)}>
-                Cancel
-              </button>
-              <button className="save-btn" onClick={() => handleSave(formData)}>
-                Save Changes
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Dialog
+        open={editingIndex !== null}
+        onClose={() => setEditingIndex(null)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          style: { overflowX: 'auto', minWidth: 700 }
+        }}
+      >
+        <DialogTitle>
+          {isDeviation ? "Edit Deviation: " : "Edit Rule: "}
+          <span style={{ color: "#1976d2", fontWeight: 600 }}>
+            {editingRuleName}
+          </span>
+        </DialogTitle>
+        <DialogContent
+          dividers
+          sx={{
+            maxHeight: '60vh',
+            overflowY: 'auto',
+            overflowX: 'auto',
+            minWidth: 700,
+            p: 0
+          }}
+        >
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: 'max-content 1fr',
+              alignItems: 'center',
+              gap: 2,
+              minWidth: 700,
+              p: 4
+            }}
+          >
+            <RenderGridRows rows={rows} handleDeepChange={handleDeepChange} />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ position: 'sticky', bottom: 0, background: '#fff', zIndex: 2 }}>
+          <Button
+            onClick={() => setEditingIndex(null)}
+            variant="outlined"
+            sx={{
+              color: '#fff',
+              background: '#e74c3c',
+              borderColor: '#e74c3c',
+              '&:hover': { background: '#c0392b', borderColor: '#c0392b' }
+            }}
+          >
+            Cancel
+          </Button>
+          <Button onClick={() => handleSave(formData)} variant="contained">
+            Save Changes
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Add Rule Modal */}
-      {adding && (
-        <div className="modal-overlay">
-          <div className="modal improved-modal">
-            <div className="modal-header">
-              <h2>Add Rule</h2>
-              <button className="close-btn" onClick={() => setAdding(false)}>&times;</button>
-            </div>
-            <div className="modal-body">
-              {renderEditableFields(formData, '', handleDeepChange)}
-            </div>
-            <div className="modal-actions fixed-actions">
-              <button className="cancel-btn" onClick={() => setAdding(false)}>
-                Cancel
-              </button>
-              <button className="save-btn" onClick={() => handleSaveNewRule(formData)}>
-                Add Rule
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Dialog open={adding} onClose={() => setAdding(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Add Rule</DialogTitle>
+        <DialogContent dividers sx={{ maxHeight: '60vh', overflowY: 'auto', overflowX: 'auto', minWidth: 700, p: 0 }}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: 'max-content 1fr',
+              alignItems: 'center',
+              gap: 2,
+              minWidth: 700,
+              p: 4
+            }}
+          >
+            {adding && <RenderGridRows rows={flattenFields(formData, '', 0)} handleDeepChange={handleDeepChange} />}
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ position: 'sticky', bottom: 0, background: '#fff', zIndex: 2 }}>
+          <Button
+            onClick={() => setAdding(false)}
+            variant="outlined"
+            sx={{
+              color: '#fff',
+              background: '#e74c3c',
+              borderColor: '#e74c3c',
+              '&:hover': { background: '#c0392b', borderColor: '#c0392b' }
+            }}
+          >
+            Cancel
+          </Button>
+          <Button onClick={() => handleSaveNewRule(formData)} variant="contained">
+            Add Rule
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }
