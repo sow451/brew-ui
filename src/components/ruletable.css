@@ -188,4 +188,92 @@
 .delete-btn:hover {
   background-color: #c0392b;
 }
+.read-only-field {
+  background: #f8f9fa;
+  color: #6c757d;
+  border: 1px solid #dee2e6;
+  cursor: not-allowed;
+}
 
+.read-only-field:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.collapsible {
+  margin-bottom: 8px;
+  border-left: 2px solid #007bff;
+  padding-left: 8px;
+}
+
+.collapsible-header {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 500;
+  color: #007bff;
+  margin-bottom: 4px;
+  user-select: none;
+}
+
+.collapsible-arrow {
+  margin-right: 6px;
+  font-size: 14px;
+}
+
+.collapsible-label {
+  font-size: 15px;
+}
+
+.collapsible-content {
+  margin-left: 16px;
+}
+
+.form-group {
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+}
+
+.form-group label {
+  width: 170px;
+  min-width: 120px;
+  font-weight: 500;
+  margin-right: 10px;
+}
+
+.form-group input {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.read-only-field {
+  background: #f8f9fa;
+  color: #6c757d;
+  border: 1px solid #dee2e6;
+  cursor: not-allowed;
+}
+.read-only-field:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.modal-actions.fixed-actions {
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  padding: 16px 0 0 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid #eee;
+  z-index: 2;
+}
+
+.modal-body {
+  max-height: 55vh;
+  overflow-y: auto;
+  padding-bottom: 8px;
+}

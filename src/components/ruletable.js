@@ -1,54 +1,89 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './ruletable.css';
 
-// Recursively render fields for editing
-function renderFields(obj, path, handleDeepChange) {
+const ALLOWED_PATHS = [
+  /(^|\.)value$/, // any field named 'value' at any nesting
+  /(^|\.)operatorValue$/, // any field named 'operatorValue' at any nesting
+  /^ruleString$/,
+  /^ruleMetadata\.ruleDescription$/,
+  /^ruleMetadata\.failureDescription$/,
+  /^ruleConfig(\..+)?$/, // allow everything in ruleConfig
+  /^ruleActionString$/,
+  /^importList(\.\d+)?$/, // importList and its items
+  /^operand\.operandDefinition\.\d+\.orderOfOccurence\.\d+\.fullPath$/,
+  /^operand\.operandDefinition\.\d+\.orderOfOccurence\.\d+\.displayName$/
+];
+
+function isEditable(path) {
+  // Convert [0] array notation to .0 for regex matching
+  const normalized = path.replace(/\[(\d+)\]/g, '.$1');
+  return ALLOWED_PATHS.some(pattern => pattern.test(normalized));
+}
+
+// Collapsible field group for nested objects/arrays
+function Collapsible({ label, children, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="collapsible">
+      <div className="collapsible-header" onClick={() => setOpen(o => !o)}>
+        <span className="collapsible-arrow">{open ? '▼' : '▶'}</span>
+        <span className="collapsible-label">{label}</span>
+      </div>
+      {open && <div className="collapsible-content">{children}</div>}
+    </div>
+  );
+}
+
+function renderEditableFields(obj, path, handleDeepChange, level = 0) {
   if (typeof obj !== 'object' || obj === null) return null;
 
   return Object.entries(obj).map(([key, value]) => {
     const currentPath = path ? `${path}.${key}` : key;
 
-    // For arrays (like operandDefinition)
     if (Array.isArray(value)) {
+      // For importList and allowedList, make each string item editable
+      const isImportList = currentPath.endsWith('importList');
       return (
-        <div className="form-group" key={currentPath}>
-          <label>{key}:</label>
+        <Collapsible key={currentPath} label={key} defaultOpen={level < 1}>
           {value.map((item, idx) => (
-            <div className="array-item" key={currentPath + '[' + idx + ']'}>
-              <span className="array-index">[{idx + 1}]</span>
-              {typeof item === 'object'
-                ? renderFields(item, `${currentPath}[${idx}]`, handleDeepChange)
-                : (
-                  <input
-                    value={item}
-                    onChange={e => handleDeepChange(`${currentPath}[${idx}]`, e.target.value)}
-                  />
-                )
-              }
+            <div className="array-item" key={`${currentPath}[${idx}]`}>
+              {isImportList && typeof item !== 'object' ? (
+                <input
+                  type="text"
+                  value={item ?? ''}
+                  onChange={e => handleDeepChange(`${currentPath}[${idx}]`, e.target.value)}
+                  className={isEditable(`${currentPath}[${idx}]`) ? '' : 'read-only-field'}
+                  disabled={!isEditable(`${currentPath}[${idx}]`)}
+                />
+              ) : (
+                <Collapsible label={`[${idx}]`} defaultOpen={level < 1}>
+                  {renderEditableFields(item, `${currentPath}[${idx}]`, handleDeepChange, level + 2)}
+                </Collapsible>
+              )}
             </div>
           ))}
-        </div>
+        </Collapsible>
       );
     }
 
-    // For nested objects
     if (typeof value === 'object' && value !== null) {
       return (
-        <div className="form-group nested" key={currentPath}>
-          <label>{key}:</label>
-          {renderFields(value, currentPath, handleDeepChange)}
-        </div>
+        <Collapsible key={currentPath} label={key} defaultOpen={level < 1}>
+          {renderEditableFields(value, currentPath, handleDeepChange, level + 1)}
+        </Collapsible>
       );
     }
 
-    // For primitive values
+    const editable = isEditable(currentPath);
     return (
-      <div className="form-group" key={currentPath}>
+      <div className="form-group" key={currentPath} style={{ marginLeft: `${level * 16}px` }}>
         <label>{key}:</label>
         <input
-          type={typeof value === 'number' ? 'number' : 'text'}
-          value={value}
+          type="text"
+          value={value ?? ''}
           onChange={e => handleDeepChange(currentPath, e.target.value)}
+          disabled={!editable}
+          className={editable ? '' : 'read-only-field'}
         />
       </div>
     );
@@ -67,7 +102,6 @@ export default function RuleTable({
   setAdding,
   handleSaveNewRule
 }) {
-  // Deep change handler
   const handleDeepChange = (path, value) => {
     setFormData(prev => {
       const newData = JSON.parse(JSON.stringify(prev));
@@ -129,9 +163,9 @@ export default function RuleTable({
               <button className="close-btn" onClick={() => setEditingIndex(null)}>&times;</button>
             </div>
             <div className="modal-body">
-              {renderFields(formData, '', handleDeepChange)}
+              {renderEditableFields(formData, '', handleDeepChange)}
             </div>
-            <div className="modal-actions">
+            <div className="modal-actions fixed-actions">
               <button className="cancel-btn" onClick={() => setEditingIndex(null)}>
                 Cancel
               </button>
@@ -152,9 +186,9 @@ export default function RuleTable({
               <button className="close-btn" onClick={() => setAdding(false)}>&times;</button>
             </div>
             <div className="modal-body">
-              {renderFields(formData, '', handleDeepChange)}
+              {renderEditableFields(formData, '', handleDeepChange)}
             </div>
-            <div className="modal-actions">
+            <div className="modal-actions fixed-actions">
               <button className="cancel-btn" onClick={() => setAdding(false)}>
                 Cancel
               </button>
