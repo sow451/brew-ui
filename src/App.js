@@ -10,24 +10,58 @@ import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
 
 function generateDiffSummary(oldRules, newRules) {
-  const diffs = [];
   const oldDict = {};
   const newDict = {};
   (oldRules || []).forEach(r => { oldDict[r.ruleId] = r; });
   (newRules || []).forEach(r => { newDict[r.ruleId] = r; });
   const allKeys = new Set([...Object.keys(oldDict), ...Object.keys(newDict)]);
-  for (const key of allKeys) {
-    const oldRule = oldDict[key];
-    const newRule = newDict[key];
-    if (oldRule && !newRule) {
-      diffs.push({ ruleId: key, ChangeType: 'Deleted', OldValue: JSON.stringify(oldRule), NewValue: '' });
-    } else if (!oldRule && newRule) {
-      diffs.push({ ruleId: key, ChangeType: 'Added', OldValue: '', NewValue: JSON.stringify(newRule) });
-    } else if (JSON.stringify(oldRule) !== JSON.stringify(newRule)) {
-      diffs.push({ ruleId: key, ChangeType: 'Modified', OldValue: JSON.stringify(oldRule), NewValue: JSON.stringify(newRule) });
+  const rows = [];
+  
+  for (const ruleId of allKeys) {
+    const oldRule = oldDict[ruleId] || {};
+    const newRule = newDict[ruleId] || {};
+    const allFields = new Set([...Object.keys(oldRule), ...Object.keys(newRule)]);
+    
+    // Handle deleted rules
+    if (!newRule.ruleId) {
+      rows.push({
+        'Rule ID': ruleId,
+        'Field': 'ALL',
+        'Old Value': 'Rule existed',
+        'New Value': 'Rule deleted'
+      });
+      continue;
+    }
+    
+    // Handle added rules
+    if (!oldRule.ruleId) {
+      rows.push({
+        'Rule ID': ruleId,
+        'Field': 'ALL',
+        'Old Value': 'Rule did not exist',
+        'New Value': 'Rule added'
+      });
+      continue;
+    }
+
+    // Handle modified rules
+    for (const field of allFields) {
+      if (field === 'ruleId') continue;
+      
+      const oldVal = oldRule[field];
+      const newVal = newRule[field];
+      
+      if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+        rows.push({
+          'Rule ID': ruleId,
+          'Field': field,
+          'Old Value': oldVal !== undefined ? JSON.stringify(oldVal) : '',
+          'New Value': newVal !== undefined ? JSON.stringify(newVal) : ''
+        });
+      }
     }
   }
-  return diffs;
+  return rows;
 }
 
 function jsonToSheetAndBlob(data, sheetName = 'Sheet1', filename = 'file.xlsx') {
