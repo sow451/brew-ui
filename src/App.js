@@ -1,13 +1,71 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import './App.css';
 import RuleTable from './components/ruletable';
+import {
+  Dialog, DialogTitle, DialogContent, DialogActions,
+  Button, TextField, Box
+} from '@mui/material';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
+import * as XLSX from 'xlsx';
 
-function App() {
+function generateDiffSummary(oldRules, newRules) {
+  const diffs = [];
+  const oldDict = {};
+  const newDict = {};
+  (oldRules || []).forEach(r => { oldDict[r.ruleId] = r; });
+  (newRules || []).forEach(r => { newDict[r.ruleId] = r; });
+  const allKeys = new Set([...Object.keys(oldDict), ...Object.keys(newDict)]);
+  for (const key of allKeys) {
+    const oldRule = oldDict[key];
+    const newRule = newDict[key];
+    if (oldRule && !newRule) {
+      diffs.push({ ruleId: key, ChangeType: 'Deleted', OldValue: JSON.stringify(oldRule), NewValue: '' });
+    } else if (!oldRule && newRule) {
+      diffs.push({ ruleId: key, ChangeType: 'Added', OldValue: '', NewValue: JSON.stringify(newRule) });
+    } else if (JSON.stringify(oldRule) !== JSON.stringify(newRule)) {
+      diffs.push({ ruleId: key, ChangeType: 'Modified', OldValue: JSON.stringify(oldRule), NewValue: JSON.stringify(newRule) });
+    }
+  }
+  return diffs;
+}
+
+function jsonToSheetAndBlob(data, sheetName = 'Sheet1', filename = 'file.xlsx') {
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  return new Blob([wbout], { type: 'application/octet-stream' });
+}
+
+function getFileExtension(filename) {
+  return filename ? filename.split('.').pop().toLowerCase() : '';
+}
+
+function getClientRequestFilename(file) {
+  if (!file) return null;
+  const ext = getFileExtension(file.name);
+  if (ext === 'pdf' || ext === 'xlsx') return `client-request.${ext}`;
+  return `client-request.${ext || 'bin'}`;
+}
+
+export default function App() {
   const [policyData, setPolicyData] = useState(null);
+  const [oldPolicyData, setOldPolicyData] = useState(null);
   const [editingIndex, setEditingIndex] = useState(null);
   const [formData, setFormData] = useState({});
   const [adding, setAdding] = useState(false);
   const [activeTab, setActiveTab] = useState('rules');
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [downloadMeta, setDownloadMeta] = useState({
+    fullName: "",
+    email: "",
+    editDate: new Date().toISOString().slice(0, 10),
+    downloadDate: "",
+    description: ""
+  });
+  const [clientRequestFile, setClientRequestFile] = useState(null);
+  const clientRequestInputRef = useRef();
 
   // Upload JSON
   const handleUpload = (e) => {
@@ -18,6 +76,7 @@ function App() {
       try {
         const json = JSON.parse(event.target.result);
         setPolicyData(json);
+        setOldPolicyData(JSON.parse(event.target.result)); // Save original for diff
         setEditingIndex(null);
         setFormData({});
       } catch (err) {
@@ -27,15 +86,47 @@ function App() {
     reader.readAsText(file);
   };
 
-  // Download JSON
-  const handleDownload = () => {
-    const dataStr = JSON.stringify(policyData, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${policyData.policyDto?.brePolicyName?.replace(/ /g, '_') || 'policy'}.json`;
-    link.click();
+  // Upload client request file
+  const handleClientRequestUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) setClientRequestFile(file);
+  };
+
+  // Download button triggers modal
+  const handleDownloadClick = () => {
+    setDownloadMeta(meta => ({
+      ...meta,
+      downloadDate: new Date().toISOString().slice(0, 10)
+    }));
+    setShowDownloadModal(true);
+  };
+
+  // Download logic (attach metadata)
+  const handleDownload = async () => {
+    const zip = new JSZip();
+    // old-rules.json
+    zip.file('old-rules.json', JSON.stringify(oldPolicyData, null, 2));
+    // new-rules.json
+    zip.file('new-rules.json', JSON.stringify(policyData, null, 2));
+    // audit-metadata.json
+    zip.file('audit-metadata.json', JSON.stringify(downloadMeta, null, 2));
+    // client-request.pdf/xlsx
+    if (clientRequestFile) {
+      const data = await clientRequestFile.arrayBuffer();
+      zip.file(getClientRequestFilename(clientRequestFile), data);
+    }
+    // diff-summary.xlsx
+    const oldRules = oldPolicyData?.ruleUnitDtoList || [];
+    const newRules = policyData?.ruleUnitDtoList || [];
+    const diffSummary = generateDiffSummary(oldRules, newRules);
+    const diffBlob = jsonToSheetAndBlob(diffSummary, 'DiffSummary', 'diff-summary.xlsx');
+    zip.file('diff-summary.xlsx', diffBlob);
+
+    // Download ZIP
+    zip.generateAsync({ type: 'blob' }).then((content) => {
+      saveAs(content, `${policyData.policyDto?.brePolicyName?.replace(/ /g, '_') || 'policy'}_export.zip`);
+    });
+    setShowDownloadModal(false);
   };
 
   // Delete rule
@@ -115,13 +206,28 @@ function App() {
             onChange={handleUpload}
           />
         </label>
+        <label className="upload-btn" style={{ marginLeft: 10 }}>
+          Upload Client Request (PDF/XLSX)
+          <input
+            ref={clientRequestInputRef}
+            type="file"
+            accept=".pdf,.xlsx"
+            style={{ display: 'none' }}
+            onChange={handleClientRequestUpload}
+          />
+        </label>
+        {clientRequestFile && (
+          <span style={{ marginLeft: 10, color: '#007bff' }}>
+            {clientRequestFile.name}
+          </span>
+        )}
         {policyData && (
           <>
             <button className="add-btn" onClick={handleAddRule}>
               + Add Rule
             </button>
-            <button className="download-btn" onClick={handleDownload}>
-              Download Policy
+            <button className="download-btn" onClick={handleDownloadClick}>
+              Download Policy ZIP
             </button>
           </>
         )}
@@ -174,8 +280,60 @@ function App() {
           />
         </div>
       )}
+
+      {/* Download Metadata Modal */}
+      <Dialog open={showDownloadModal} onClose={() => setShowDownloadModal(false)}>
+        <DialogTitle>Download Policy Metadata</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 400 }}>
+            <TextField
+              label="Full Name"
+              value={downloadMeta.fullName}
+              onChange={e => setDownloadMeta(meta => ({ ...meta, fullName: e.target.value }))}
+              required
+            />
+            <TextField
+              label="Official Email"
+              type="email"
+              value={downloadMeta.email}
+              onChange={e => setDownloadMeta(meta => ({ ...meta, email: e.target.value }))}
+              required
+            />
+            <TextField
+              label="Date of Editing"
+              value={downloadMeta.editDate}
+              InputProps={{ readOnly: true }}
+            />
+            <TextField
+              label="Date of Download"
+              value={downloadMeta.downloadDate}
+              InputProps={{ readOnly: true }}
+            />
+            <TextField
+              label="Description of Changes"
+              value={downloadMeta.description}
+              onChange={e => setDownloadMeta(meta => ({ ...meta, description: e.target.value }))}
+              multiline
+              minRows={2}
+              required
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowDownloadModal(false)} color="secondary">Cancel</Button>
+          <Button
+            onClick={handleDownload}
+            variant="contained"
+            disabled={
+              !downloadMeta.fullName ||
+              !downloadMeta.email ||
+              !downloadMeta.description
+            }
+          >
+            Download ZIP
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }
-
-export default App;
