@@ -3,7 +3,7 @@ import './App.css';
 import RuleTable from './components/ruletable';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, TextField, Box
+  Button, TextField, Box, FormControl, InputLabel, Select, MenuItem
 } from '@mui/material';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
@@ -16,13 +16,10 @@ function generateDiffSummary(oldRules, newRules) {
   (newRules || []).forEach(r => { newDict[r.ruleId] = r; });
   const allKeys = new Set([...Object.keys(oldDict), ...Object.keys(newDict)]);
   const rows = [];
-  
   for (const ruleId of allKeys) {
     const oldRule = oldDict[ruleId] || {};
     const newRule = newDict[ruleId] || {};
-    const allFields = new Set([...Object.keys(oldRule), ...Object.keys(newRule)]);
-    
-    // Handle deleted rules
+    // Deleted rule
     if (!newRule.ruleId) {
       rows.push({
         'Rule ID': ruleId,
@@ -32,8 +29,7 @@ function generateDiffSummary(oldRules, newRules) {
       });
       continue;
     }
-    
-    // Handle added rules
+    // Added rule
     if (!oldRule.ruleId) {
       rows.push({
         'Rule ID': ruleId,
@@ -43,14 +39,12 @@ function generateDiffSummary(oldRules, newRules) {
       });
       continue;
     }
-
-    // Handle modified rules
+    // Modified fields
+    const allFields = new Set([...Object.keys(oldRule), ...Object.keys(newRule)]);
+    allFields.delete('ruleId');
     for (const field of allFields) {
-      if (field === 'ruleId') continue;
-      
       const oldVal = oldRule[field];
       const newVal = newRule[field];
-      
       if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
         rows.push({
           'Rule ID': ruleId,
@@ -64,7 +58,7 @@ function generateDiffSummary(oldRules, newRules) {
   return rows;
 }
 
-function jsonToSheetAndBlob(data, sheetName = 'Sheet1', filename = 'file.xlsx') {
+function jsonToSheetAndBlob(data, sheetName = 'Sheet1') {
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
@@ -100,6 +94,24 @@ export default function App() {
   });
   const [clientRequestFile, setClientRequestFile] = useState(null);
   const clientRequestInputRef = useRef();
+
+  // Category filter state
+  const [categoryFilter, setCategoryFilter] = useState('');
+
+  // Extract unique categories for dropdown, excluding 'deviation parameter'
+  const allCategories = policyData
+    ? Array.from(
+        new Set(
+          policyData.ruleUnitDtoList
+            .map(r => r.ruleTemplateGroupCategory)
+            .filter(
+              cat =>
+                !!cat &&
+                cat.toLowerCase() !== 'deviation parameter'
+            )
+        )
+      )
+    : [];
 
   // Upload JSON
   const handleUpload = (e) => {
@@ -149,11 +161,11 @@ export default function App() {
       const data = await clientRequestFile.arrayBuffer();
       zip.file(getClientRequestFilename(clientRequestFile), data);
     }
-    // diff-summary.xlsx
+    // diff-summary.xlsx (only changed fields)
     const oldRules = oldPolicyData?.ruleUnitDtoList || [];
     const newRules = policyData?.ruleUnitDtoList || [];
     const diffSummary = generateDiffSummary(oldRules, newRules);
-    const diffBlob = jsonToSheetAndBlob(diffSummary, 'DiffSummary', 'diff-summary.xlsx');
+    const diffBlob = jsonToSheetAndBlob(diffSummary, 'DiffSummary');
     zip.file('diff-summary.xlsx', diffBlob);
 
     // Download ZIP
@@ -214,15 +226,22 @@ export default function App() {
     setFormData({});
   };
 
-  // Filter rules based on tab
+  // Filter rules based on tab and category
   let filteredRules = [];
   if (policyData) {
-    filteredRules = policyData.ruleUnitDtoList.filter(rule =>
-      activeTab === 'rules'
-        ? rule.ruleTemplateGroupCategory?.toLowerCase() !== 'deviation parameter'
-        : rule.ruleTemplateGroupCategory?.toLowerCase() === 'deviation parameter'
-    );
+    if (activeTab === 'rules') {
+      filteredRules = policyData.ruleUnitDtoList
+        .filter(rule =>
+          rule.ruleTemplateGroupCategory?.toLowerCase() !== 'deviation parameter' &&
+          (!categoryFilter || rule.ruleTemplateGroupCategory === categoryFilter)
+        );
+    } else {
+      // Deviations tab: show all deviations, ignore categoryFilter
+      filteredRules = policyData.ruleUnitDtoList
+        .filter(rule => rule.ruleTemplateGroupCategory?.toLowerCase() === 'deviation parameter');
+    }
   }
+  
 
   return (
     <div className="App">
@@ -267,53 +286,73 @@ export default function App() {
         )}
       </div>
       {policyData && (
-        <div className="tabs-container">
-          <div className="tabs">
-            <button
-              className={`tab ${activeTab === 'rules' ? 'active-tab' : ''}`}
-              onClick={() => setActiveTab('rules')}
-            >
-              Rules
-            </button>
-            <button
-              className={`tab ${activeTab === 'deviations' ? 'active-tab' : ''}`}
-              onClick={() => setActiveTab('deviations')}
-            >
-              Deviations
-            </button>
-          </div>
-          <RuleTable
-            rules={filteredRules}
-            editingIndex={editingIndex}
-            setEditingIndex={setEditingIndex}
-            formData={formData}
-            setFormData={setFormData}
-            handleSave={(updatedRule) => {
-              const updatedRules = [...policyData.ruleUnitDtoList];
-              // Find actual index in the original array for correct update
-              const globalIndex = policyData.ruleUnitDtoList.findIndex(
-                rule => rule.ruleId === updatedRule.ruleId
-              );
-              updatedRules[globalIndex] = updatedRule;
-              setPolicyData(prev => ({
-                ...prev,
-                ruleUnitDtoList: updatedRules
-              }));
-              setEditingIndex(null);
-            }}
-            handleDelete={(index) => {
-              // Find actual index in the original array for correct delete
-              const globalIndex = policyData.ruleUnitDtoList.findIndex(
-                rule => rule.ruleId === filteredRules[index].ruleId
-              );
-              handleDelete(globalIndex);
-            }}
-            adding={adding}
-            setAdding={setAdding}
-            handleSaveNewRule={handleSaveNewRule}
-          />
-        </div>
+  <div className="tabs-container">
+    <div className="tabs-filter-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+      <div className="tabs">
+        <button
+          className={`tab ${activeTab === 'rules' ? 'active-tab' : ''}`}
+          onClick={() => setActiveTab('rules')}
+        >
+          Rules
+        </button>
+        <button
+          className={`tab ${activeTab === 'deviations' ? 'active-tab' : ''}`}
+          onClick={() => setActiveTab('deviations')}
+        >
+          Deviations
+        </button>
+      </div>
+      {activeTab === 'rules' && (
+        <FormControl sx={{ minWidth: 220 }}>
+          <InputLabel id="category-filter-label">Filter by Category</InputLabel>
+          <Select
+            labelId="category-filter-label"
+            id="category-filter"
+            value={categoryFilter}
+            label="Filter by Category"
+            onChange={e => setCategoryFilter(e.target.value)}
+          >
+            <MenuItem value="">
+              <em>All Categories</em>
+            </MenuItem>
+            {allCategories.map(cat => (
+              <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       )}
+    </div>
+    <RuleTable
+      rules={filteredRules}
+      editingIndex={editingIndex}
+      setEditingIndex={setEditingIndex}
+      formData={formData}
+      setFormData={setFormData}
+      handleSave={(updatedRule) => {
+        const updatedRules = [...policyData.ruleUnitDtoList];
+        const globalIndex = policyData.ruleUnitDtoList.findIndex(
+          rule => rule.ruleId === updatedRule.ruleId
+        );
+        updatedRules[globalIndex] = updatedRule;
+        setPolicyData(prev => ({
+          ...prev,
+          ruleUnitDtoList: updatedRules
+        }));
+        setEditingIndex(null);
+      }}
+      handleDelete={(index) => {
+        const globalIndex = policyData.ruleUnitDtoList.findIndex(
+          rule => rule.ruleId === filteredRules[index].ruleId
+        );
+        handleDelete(globalIndex);
+      }}
+      adding={adding}
+      setAdding={setAdding}
+      handleSaveNewRule={handleSaveNewRule}
+    />
+  </div>
+)}
+
 
       {/* Download Metadata Modal */}
       <Dialog open={showDownloadModal} onClose={() => setShowDownloadModal(false)}>
