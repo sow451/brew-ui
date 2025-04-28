@@ -67,7 +67,7 @@ function flattenFields(obj, path = '', level = 0) {
   return rows;
 }
 
-function RenderGridRows({ rows, handleDeepChange }) {
+function RenderGridRows({ rows, handleDeepChange, modalViewMode, setModalViewMode, setFormData, formData }) {
   const [openMap, setOpenMap] = useState({});
 
   const handleToggle = (label, level) => {
@@ -99,50 +99,115 @@ function RenderGridRows({ rows, handleDeepChange }) {
             </IconButton>
             <Typography variant="subtitle2" sx={{ fontWeight: 500 }}>{row.label}</Typography>
           </Box>
-          {isOpen && <RenderGridRows rows={row.children} handleDeepChange={handleDeepChange} />}
+          {isOpen && <RenderGridRows rows={row.children} handleDeepChange={handleDeepChange} modalViewMode={modalViewMode} setModalViewMode={setModalViewMode} setFormData={setFormData} />}
         </React.Fragment>
       );
     }
     return (
       <React.Fragment key={row.path}>
+        {/* Modified Label Part */}
         <Box
           sx={{
             gridColumn: 1,
             display: 'flex',
             alignItems: 'center',
             pl: `${row.level * 2}em`,
-            whiteSpace: 'nowrap'
+            whiteSpace: 'nowrap',
+            gap: 1
           }}
           component="label"
           htmlFor={row.path}
         >
-          {row.label}:
-        </Box>
-        <Box
-          sx={{
-            gridColumn: 2,
-            display: 'flex',
-            justifyContent: 'flex-end'
-          }}
-        >
-          <TextField
-            id={row.path}
-            size="small"
-            value={row.value ?? ''}
-            onChange={e => handleDeepChange(row.path, e.target.value)}
-            disabled={!row.editable}
-            className={row.editable ? '' : 'read-only-field'}
-            sx={{
-              width: 400,
-              background: row.editable ? 'white' : '#f8f9fa'
+          {(row.label === 'allowedList' || row.label === 'blockList') ? (
+            <select
+            value={modalViewMode}
+            onChange={(e) => setModalViewMode(e.target.value)}
+            className="column-dropdown"
+            style={{
+              border: 'none',
+              background: 'transparent',
+              fontWeight: 'inherit',
+              fontSize: 'inherit',
+              color: 'inherit',
+              appearance: 'none',
+              cursor: 'pointer',
+              display: 'inline-block',
+              paddingRight: '16px',
+              backgroundImage: `url("data:image/svg+xml;utf8,<svg fill='black' height='20' viewBox='0 0 24 24' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>")`,
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'right center',
+              backgroundSize: '16px'
             }}
-            inputProps={{ style: { textAlign: 'left' } }}
-          />
+          >
+            <option value="allowed">Allowed List</option>
+            <option value="block">Block List</option>
+          </select>
+          
+          ) : (
+            <>
+              {row.label}:
+            </>
+          )}
         </Box>
+
+        {/* Normal Field Rendering */}
+        <Box
+  sx={{
+    gridColumn: 2,
+    display: 'flex',
+    justifyContent: 'flex-end'
+  }}
+>
+  {(row.label === 'allowedList' || row.label === 'blockList') ? (
+    <TextField
+      id={row.path}
+      size="small"
+      value={
+        modalViewMode === 'allowed'
+          ? (formData?.ruleConfig?.allowedList || '')
+          : (formData?.ruleConfig?.blockList || '')
+      }
+      onChange={(e) => {
+        const newValue = e.target.value;
+        setFormData(prev => ({
+          ...prev,
+          ruleConfig: {
+            ...prev.ruleConfig,
+            ...(modalViewMode === 'allowed'
+              ? { allowedList: newValue }
+              : { blockList: newValue }
+            )
+          }
+        }));
+      }}
+      sx={{
+        width: 400,
+        background: 'white'
+      }}
+      inputProps={{ style: { textAlign: 'left' } }}
+    />
+  ) : (
+    <TextField
+      id={row.path}
+      size="small"
+      value={row.value ?? ''}
+      onChange={e => handleDeepChange(row.path, e.target.value)}
+      disabled={!row.editable}
+      className={row.editable ? '' : 'read-only-field'}
+      sx={{
+        width: 400,
+        background: row.editable ? 'white' : '#f8f9fa'
+      }}
+      inputProps={{ style: { textAlign: 'left' } }}
+    />
+  )}
+</Box>
+
       </React.Fragment>
     );
   });
 }
+
 
 export default function RuleTable({
   rules,
@@ -158,6 +223,7 @@ export default function RuleTable({
   handleSaveNewRule
 }) {
   const [viewMode, setViewMode] = useState('allowed'); // Controls which list to show
+  const [modalViewMode, setModalViewMode] = useState('allowed'); //for inside the dropdown
   const handleDeepChange = (path, value) => {
     setFormData(prev => {
       const newData = JSON.parse(JSON.stringify(prev));
@@ -174,6 +240,15 @@ export default function RuleTable({
   const handleEdit = (index) => {
     setEditingIndex(index);
     setFormData(JSON.parse(JSON.stringify(rules[index])));
+    const hasAllowed = rules[index]?.ruleConfig?.allowedList;
+  const hasBlock = rules[index]?.ruleConfig?.blockList;
+  if (hasAllowed) {
+    setModalViewMode('allowed');
+  } else if (hasBlock) {
+    setModalViewMode('block');
+  } else {
+    setModalViewMode('allowed'); // Default safe fallback
+  }
   };
 
   // Get the ruleCheckpointParameter and category for the editing rule
@@ -276,27 +351,36 @@ export default function RuleTable({
         </DialogTitle>
         <DialogContent
           dividers
-          sx={{
-            maxHeight: '60vh',
-            overflowY: 'auto',
-            overflowX: 'auto',
-            minWidth: 700,
-            p: 0
-          }}
-        >
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: 'max-content 1fr',
-              alignItems: 'center',
-              gap: 2,
-              minWidth: 700,
-              p: 4
-            }}
-          >
-            <RenderGridRows rows={rows} handleDeepChange={handleDeepChange} />
-          </Box>
-        </DialogContent>
+  sx={{
+    maxHeight: '60vh',
+    overflowY: 'auto',
+    overflowX: 'auto',
+    minWidth: 700,
+    p: 0
+  }}
+>
+  <Box
+    sx={{
+      display: 'grid',
+      gridTemplateColumns: 'max-content 1fr',
+      alignItems: 'center',
+      gap: 2,
+      minWidth: 700,
+      p: 4
+    }}
+  >
+    <RenderGridRows
+  rows={rows}
+  handleDeepChange={handleDeepChange}
+  modalViewMode={modalViewMode}
+  setModalViewMode={setModalViewMode}
+  setFormData={setFormData}
+  formData={formData}
+/>
+
+
+  </Box>
+</DialogContent>
         <DialogActions sx={{ position: 'sticky', bottom: 0, background: '#fff', zIndex: 2 }}>
           <Button
             onClick={() => setEditingIndex(null)}
