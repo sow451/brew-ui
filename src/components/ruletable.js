@@ -28,7 +28,17 @@ function flattenFields(obj, path = '', level = 0) {
   let rows = [];
   Object.entries(obj).forEach(([key, value]) => {
     const currentPath = path ? `${path}.${key}` : key;
-    if (Array.isArray(value)) {
+    if (path.endsWith('ruleConfig')) {
+      // Special: allow editing key and value for ruleConfig
+      rows.push({
+        keyLabel: key,
+        value,
+        path: currentPath,
+        editable: true,
+        level,
+        isRuleConfigPair: true
+      });
+    } else if (Array.isArray(value)) {
       value.forEach((item, idx) => {
         if (typeof item !== 'object' || item === null) {
           rows.push({
@@ -67,7 +77,8 @@ function flattenFields(obj, path = '', level = 0) {
   return rows;
 }
 
-function RenderGridRows({ rows, handleDeepChange, modalViewMode, setModalViewMode, setFormData, formData }) {
+
+function RenderGridRows({ rows, handleDeepChange, handleRenameRuleConfigKey }) {
   const [openMap, setOpenMap] = useState({});
 
   const handleToggle = (label, level) => {
@@ -78,6 +89,58 @@ function RenderGridRows({ rows, handleDeepChange, modalViewMode, setModalViewMod
   };
 
   return rows.map((row, idx) => {
+    // Handle ruleConfig key-value pairs first
+    if (row.isRuleConfigPair) {
+      return (
+        <React.Fragment key={row.path}>
+          <Box
+            sx={{
+              gridColumn: 1,
+              display: 'flex',
+              alignItems: 'center',
+              pl: `${row.level * 2}em`,
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <TextField
+              value={row.keyLabel}
+              size="small"
+              sx={{ width: 180, marginRight: 2 }}
+              onChange={e => {
+                const newKey = e.target.value;
+                handleRenameRuleConfigKey(row.path, newKey, row.value);
+              }}
+            />
+            :
+          </Box>
+          <Box
+            sx={{
+              gridColumn: 2,
+              display: 'flex',
+              justifyContent: 'flex-end'
+            }}
+          >
+            <TextField
+              id={row.path}
+              size="small"
+              value={Array.isArray(row.value) ? row.value.join(', ') : row.value || ''}
+              onChange={e => {
+                handleDeepChange(
+                  row.path,
+                  typeof row.value === 'string' 
+                    ? e.target.value 
+                    : e.target.value.split(',').map(s => s.trim()).filter(Boolean)
+                );
+              }}
+              sx={{ width: 400, background: 'white' }}
+              inputProps={{ style: { textAlign: 'left' } }}
+            />
+          </Box>
+        </React.Fragment>
+      );
+    }
+
+    // Handle collapsible sections
     if (row.isCollapsible) {
       const isOpen = openMap[row.label + row.level] ?? row.level < 1;
       return (
@@ -99,119 +162,62 @@ function RenderGridRows({ rows, handleDeepChange, modalViewMode, setModalViewMod
             </IconButton>
             <Typography variant="subtitle2" sx={{ fontWeight: 500 }}>{row.label}</Typography>
           </Box>
-          {isOpen && <RenderGridRows rows={row.children} handleDeepChange={handleDeepChange} modalViewMode={modalViewMode} setModalViewMode={setModalViewMode} setFormData={setFormData} />}
+          {isOpen && <RenderGridRows 
+            rows={row.children} 
+            handleDeepChange={handleDeepChange}
+            handleRenameRuleConfigKey={handleRenameRuleConfigKey}
+          />}
         </React.Fragment>
       );
     }
+
+    // Handle normal fields
     return (
       <React.Fragment key={row.path}>
-        {/* Modified Label Part */}
         <Box
           sx={{
             gridColumn: 1,
             display: 'flex',
             alignItems: 'center',
             pl: `${row.level * 2}em`,
-            whiteSpace: 'nowrap',
-            gap: 1
+            whiteSpace: 'nowrap'
           }}
           component="label"
           htmlFor={row.path}
         >
-          {(row.label === 'allowedList' || row.label === 'blockList') ? (
-            <select
-            value={modalViewMode}
-            onChange={(e) => setModalViewMode(e.target.value)}
-            className="column-dropdown"
-            style={{
-              border: 'none',
-              background: 'transparent',
-              fontWeight: 'inherit',
-              fontSize: 'inherit',
-              color: 'inherit',
-              appearance: 'none',
-              cursor: 'pointer',
-              display: 'inline-block',
-              paddingRight: '16px',
-              backgroundImage: `url("data:image/svg+xml;utf8,<svg fill='black' height='20' viewBox='0 0 24 24' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>")`,
-              backgroundRepeat: 'no-repeat',
-              backgroundPosition: 'right center',
-              backgroundSize: '16px'
-            }}
-          >
-            <option value="allowed">Allowed List</option>
-            <option value="block">Block List</option>
-          </select>
-          
-          ) : (
-            <>
-              {row.label}:
-            </>
-          )}
+          {row.label}:
         </Box>
-
-        {/* Normal Field Rendering */}
         <Box
-  sx={{
-    gridColumn: 2,
-    display: 'flex',
-    justifyContent: 'flex-end'
-  }}
->
-  {(row.label === 'allowedList' || row.label === 'blockList') ? (
-    <TextField
-      id={row.path}
-      size="small"
-      value={
-        modalViewMode === 'allowed'
-          ? (formData?.ruleConfig?.allowedList || '')
-          : (formData?.ruleConfig?.blockList || '')
-      }
-      onChange={(e) => {
-        const newValue = e.target.value;
-        setFormData(prev => ({
-          ...prev,
-          ruleConfig: {
-            ...prev.ruleConfig,
-            ...(modalViewMode === 'allowed'
-              ? { allowedList: newValue }
-              : { blockList: newValue }
-            )
-          }
-        }));
-      }}
-      sx={{
-        width: 400,
-        background: 'white'
-      }}
-      inputProps={{ style: { textAlign: 'left' } }}
-    />
-  ) : (
-    <TextField
-      id={row.path}
-      size="small"
-      value={row.value ?? ''}
-      onChange={e => handleDeepChange(row.path, e.target.value)}
-      disabled={!row.editable}
-      className={row.editable ? '' : 'read-only-field'}
-      sx={{
-        width: 400,
-        background: row.editable ? 'white' : '#f8f9fa'
-      }}
-      inputProps={{ style: { textAlign: 'left' } }}
-    />
-  )}
-</Box>
-
+          sx={{
+            gridColumn: 2,
+            display: 'flex',
+            justifyContent: 'flex-end'
+          }}
+        >
+          <TextField
+            id={row.path}
+            size="small"
+            value={row.value ?? ''}
+            onChange={e => handleDeepChange(row.path, e.target.value)}
+            disabled={!row.editable}
+            className={row.editable ? '' : 'read-only-field'}
+            sx={{
+              width: 400,
+              background: row.editable ? 'white' : '#f8f9fa'
+            }}
+            inputProps={{ style: { textAlign: 'left' } }}
+          />
+        </Box>
       </React.Fragment>
     );
   });
 }
 
 
+
 export default function RuleTable({
   rules,
-  isDeviation, // ✅ Add this line
+  isDeviation,
   editingIndex,
   setEditingIndex,
   formData,
@@ -222,8 +228,25 @@ export default function RuleTable({
   setAdding,
   handleSaveNewRule
 }) {
-  const [viewMode, setViewMode] = useState('allowed'); // Controls which list to show
-  const [modalViewMode, setModalViewMode] = useState('allowed'); //for inside the dropdown
+  const [viewMode, setViewMode] = useState('allowed');
+  const [modalViewMode, setModalViewMode] = useState('allowed');
+
+  // ✅ Declare handleRenameRuleConfigKey FIRST
+  const handleRenameRuleConfigKey = (path, newKey, value) => {
+    setFormData(prev => {
+      const newData = JSON.parse(JSON.stringify(prev));
+      const keys = path.split('.');
+      if (keys.length === 2 && keys[0] === 'ruleConfig') {
+        const oldKey = keys[1];
+        if (newKey && newKey !== oldKey && !newData.ruleConfig[newKey]) {
+          newData.ruleConfig[newKey] = value;
+          delete newData.ruleConfig[oldKey];
+        }
+      }
+      return newData;
+    });
+  };
+
   const handleDeepChange = (path, value) => {
     setFormData(prev => {
       const newData = JSON.parse(JSON.stringify(prev));
@@ -240,97 +263,83 @@ export default function RuleTable({
   const handleEdit = (index) => {
     setEditingIndex(index);
     setFormData(JSON.parse(JSON.stringify(rules[index])));
-    const hasAllowed = rules[index]?.ruleConfig?.allowedList;
-  const hasBlock = rules[index]?.ruleConfig?.blockList;
-  if (hasAllowed) {
-    setModalViewMode('allowed');
-  } else if (hasBlock) {
-    setModalViewMode('block');
-  } else {
-    setModalViewMode('allowed'); // Default safe fallback
-  }
   };
 
-  // Get the ruleCheckpointParameter and category for the editing rule
-  const editingRule =
-    editingIndex !== null && rules[editingIndex]
-      ? rules[editingIndex]
-      : null;
+  const editingRule = editingIndex !== null && rules[editingIndex] ? rules[editingIndex] : null;
   const editingRuleName = editingRule?.ruleCheckpointParameter || '';
-  // Collect all fields as rows for the grid
-  const rows =
-    editingIndex !== null && formData
-      ? flattenFields(formData, '', 0)
-      : [];
+  const rows = editingIndex !== null && formData ? flattenFields(formData, '', 0) : [];
 
   return (
     <div className="rule-table-container">
       <table className="rule-table">
-      <thead>
-  <tr>
-    {isDeviation ? (
-      <>
-        <th>Param</th>
-        <th className="dropdown-header">
-          
-            <select
-            className="column-dropdown"
-            value={viewMode}
-            onChange={(e) => setViewMode(e.target.value)}
-            >
-            <option value="allowed">Allowed</option>
-            <option value="block">Block</option>
-            </select>
-            </th>
-            
+        <thead>
+          <tr>
+            {isDeviation ? (
+              <>
+                <th>Param</th>
+                <th className="dropdown-header">
+                  <select
+                    className="column-dropdown"
+                    value={viewMode}
+                    onChange={(e) => setViewMode(e.target.value)}
+                  >
+                    <option value="allowed">Allowed</option>
+                    <option value="block">Block</option>
+                  </select>
+                </th>
+                <th>Full Path</th>
+                <th>Display Name</th>
+                <th>Actions</th>
+              </>
+            ) : (
+              <>
+                <th>Display Name</th>
+                <th>Category</th>
+                <th>Rule Description</th>
+                <th>Failure Description</th>
+                <th>Actions</th>
+              </>
+            )}
+          </tr>
+        </thead>
 
-        <th>Full Path</th>
-        <th>Display Name</th>
-        <th>Actions</th>
-      </>
-    ) : (
-      <>
-        <th>Display Name</th>
-        <th>Category</th>
-        <th>Rule Description</th>
-        <th>Failure Description</th>
-        <th>Actions</th>
-      </>
-    )}
-  </tr>
-</thead>
-
-<tbody>
-  {rules.map((rule, index) => (
-    <tr key={rule.ruleId}>
-      {isDeviation ? (
-        <>
-          <td>{rule?.ruleConfig?.param || '--'}</td>
-          <td>
-            {viewMode === 'allowed'
-            ? rule?.ruleConfig?.allowedList || '--'
-            : rule?.ruleConfig?.blockList || '--'}
-          </td>
-
-          <td>{rule?.ruleMetadata?.orderOfOccurence?.[0]?.fullPath || '--'}</td>
-          <td>{rule?.ruleMetadata?.orderOfOccurence?.[0]?.displayName || '--'}</td>
-        </>
-      ) : (
-        <>
-          <td>{rule?.ruleMetadata?.orderOfOccurence?.[0]?.displayName || '--'}</td>
-          <td>{rule?.ruleTemplateGroupCategory || '--'}</td>
-          <td>{rule?.ruleMetadata?.ruleDescription || '--'}</td>
-          <td>{rule?.ruleMetadata?.failureDescription || '--'}</td>
-        </>
-      )}
-      <td className="actions-cell">
-        <button className="edit-btn" onClick={() => handleEdit(index)}>Edit</button>
-        <button className="delete-btn" onClick={() => handleDelete(index)}>Delete</button>
-      </td>
-    </tr>
-  ))}
-</tbody>
-
+        <tbody>
+          {rules.map((rule, index) => (
+            <tr key={rule.ruleId}>
+              {isDeviation ? (
+                <>
+                  <td>{rule?.ruleConfig?.param || '--'}</td>
+                  <td>
+                    {viewMode === 'allowed'
+                      ? (rule?.ruleConfig?.allowedList
+                          ? (Array.isArray(rule.ruleConfig.allowedList)
+                              ? rule.ruleConfig.allowedList.join(', ')
+                              : rule.ruleConfig.allowedList)
+                          : '--')
+                      : (rule?.ruleConfig?.blockList
+                          ? (Array.isArray(rule.ruleConfig.blockList)
+                              ? rule.ruleConfig.blockList.join(', ')
+                              : rule.ruleConfig.blockList)
+                          : '--')}
+                  </td>
+                  <td>{rule?.ruleMetadata?.orderOfOccurence?.[0]?.fullPath || '--'}</td>
+                  <td>{rule?.ruleMetadata?.orderOfOccurence?.[0]?.displayName || '--'}</td>
+                </>
+              ) : (
+                <>
+                  <td>{rule?.ruleMetadata?.orderOfOccurence?.[0]?.displayName || '--'}</td>
+                  <td>{rule?.ruleTemplateGroupCategory || '--'}</td>
+                  <td>{rule?.ruleMetadata?.ruleDescription || '--'}</td>
+                  <td>{rule?.ruleMetadata?.failureDescription || '--'}</td>
+                </>
+              )}
+              <td className="actions-cell">
+                <button className="edit-btn" onClick={() => handleEdit(index)}>Edit</button>
+                <button className="delete-btn" onClick={() => handleDelete(index)}>Delete</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
       </table>
 
       {/* Edit Modal */}
@@ -351,36 +360,31 @@ export default function RuleTable({
         </DialogTitle>
         <DialogContent
           dividers
-  sx={{
-    maxHeight: '60vh',
-    overflowY: 'auto',
-    overflowX: 'auto',
-    minWidth: 700,
-    p: 0
-  }}
->
-  <Box
-    sx={{
-      display: 'grid',
-      gridTemplateColumns: 'max-content 1fr',
-      alignItems: 'center',
-      gap: 2,
-      minWidth: 700,
-      p: 4
-    }}
-  >
-    <RenderGridRows
-  rows={rows}
-  handleDeepChange={handleDeepChange}
-  modalViewMode={modalViewMode}
-  setModalViewMode={setModalViewMode}
-  setFormData={setFormData}
-  formData={formData}
-/>
-
-
-  </Box>
-</DialogContent>
+          sx={{
+            maxHeight: '60vh',
+            overflowY: 'auto',
+            overflowX: 'auto',
+            minWidth: 700,
+            p: 0
+          }}
+        >
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: 'max-content 1fr',
+              alignItems: 'center',
+              gap: 2,
+              minWidth: 700,
+              p: 4
+            }}
+          >
+            <RenderGridRows
+              rows={rows}
+              handleDeepChange={handleDeepChange}
+              handleRenameRuleConfigKey={handleRenameRuleConfigKey}
+            />
+          </Box>
+        </DialogContent>
         <DialogActions sx={{ position: 'sticky', bottom: 0, background: '#fff', zIndex: 2 }}>
           <Button
             onClick={() => setEditingIndex(null)}
