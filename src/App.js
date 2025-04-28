@@ -324,6 +324,7 @@ export default function App() {
     </div>
     <RuleTable
       rules={filteredRules}
+      isDeviation={activeTab === 'deviations'}
       editingIndex={editingIndex}
       setEditingIndex={setEditingIndex}
       formData={formData}

@@ -146,6 +146,7 @@ function RenderGridRows({ rows, handleDeepChange }) {
 
 export default function RuleTable({
   rules,
+  isDeviation, // ✅ Add this line
   editingIndex,
   setEditingIndex,
   formData,
@@ -156,6 +157,7 @@ export default function RuleTable({
   setAdding,
   handleSaveNewRule
 }) {
+  const [viewMode, setViewMode] = useState('allowed'); // Controls which list to show
   const handleDeepChange = (path, value) => {
     setFormData(prev => {
       const newData = JSON.parse(JSON.stringify(prev));
@@ -180,8 +182,6 @@ export default function RuleTable({
       ? rules[editingIndex]
       : null;
   const editingRuleName = editingRule?.ruleCheckpointParameter || '';
-  const isDeviation = editingRule?.ruleTemplateGroupCategory?.toLowerCase() === 'deviation parameter';
-
   // Collect all fields as rows for the grid
   const rows =
     editingIndex !== null && formData
@@ -191,35 +191,71 @@ export default function RuleTable({
   return (
     <div className="rule-table-container">
       <table className="rule-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Rule ID</th>
-            <th>Checkpoint</th>
-            <th>Category</th>
-            <th>Description</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rules.map((rule, index) => (
-            <tr key={rule.ruleId}>
-              <td>{index + 1}</td>
-              <td>{rule.ruleId}</td>
-              <td>{rule.ruleCheckpointParameter}</td>
-              <td>{rule.ruleTemplateGroupCategory}</td>
-              <td>{rule.ruleMetadata?.ruleDescription || 'N/A'}</td>
-              <td className="actions-cell">
-                <button className="edit-btn" onClick={() => handleEdit(index)}>
-                  Edit
-                </button>
-                <button className="delete-btn" onClick={() => handleDelete(index)}>
-                  Delete
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
+      <thead>
+  <tr>
+    {isDeviation ? (
+      <>
+        <th>Param</th>
+        <th className="dropdown-header">
+          
+            <select
+            className="column-dropdown"
+            value={viewMode}
+            onChange={(e) => setViewMode(e.target.value)}
+            >
+            <option value="allowed">Allowed</option>
+            <option value="block">Block</option>
+            </select>
+            </th>
+            
+
+        <th>Full Path</th>
+        <th>Display Name</th>
+        <th>Actions</th>
+      </>
+    ) : (
+      <>
+        <th>Display Name</th>
+        <th>Category</th>
+        <th>Rule Description</th>
+        <th>Failure Description</th>
+        <th>Actions</th>
+      </>
+    )}
+  </tr>
+</thead>
+
+<tbody>
+  {rules.map((rule, index) => (
+    <tr key={rule.ruleId}>
+      {isDeviation ? (
+        <>
+          <td>{rule?.ruleConfig?.param || '--'}</td>
+          <td>
+            {viewMode === 'allowed'
+            ? rule?.ruleConfig?.allowedList || '--'
+            : rule?.ruleConfig?.blockList || '--'}
+          </td>
+
+          <td>{rule?.ruleMetadata?.orderOfOccurence?.[0]?.fullPath || '--'}</td>
+          <td>{rule?.ruleMetadata?.orderOfOccurence?.[0]?.displayName || '--'}</td>
+        </>
+      ) : (
+        <>
+          <td>{rule?.ruleMetadata?.orderOfOccurence?.[0]?.displayName || '--'}</td>
+          <td>{rule?.ruleTemplateGroupCategory || '--'}</td>
+          <td>{rule?.ruleMetadata?.ruleDescription || '--'}</td>
+          <td>{rule?.ruleMetadata?.failureDescription || '--'}</td>
+        </>
+      )}
+      <td className="actions-cell">
+        <button className="edit-btn" onClick={() => handleEdit(index)}>Edit</button>
+        <button className="delete-btn" onClick={() => handleDelete(index)}>Delete</button>
+      </td>
+    </tr>
+  ))}
+</tbody>
+
       </table>
 
       {/* Edit Modal */}
