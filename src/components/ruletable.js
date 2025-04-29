@@ -294,6 +294,7 @@ export default function RuleTable({
             {isDeviation ? (
               <>
                 <th>Param</th>
+                <th>Display Name</th>
                 <th>List Type</th>
                 <th>List Value</th>
                 <th>Full Path</th>
@@ -316,6 +317,7 @@ export default function RuleTable({
               {isDeviation ? (
                 <>
                   <td>{rule?.ruleConfig?.param || '--'}</td>
+                  <td>{rule?.ruleMetadata?.orderOfOccurence?.[0]?.displayName || '--'}</td>
                   <td>{rule?.ruleConfig?.allowedList ? "allowedList" : "blockList"}</td>
                   <td>
                     {rule?.ruleConfig?.allowedList 
