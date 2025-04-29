@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, TextField, Box, Typography, IconButton
+  Button, TextField, Box, Typography, IconButton, Select, MenuItem
 } from '@mui/material';
 import { ExpandMore, ExpandLess } from '@mui/icons-material';
 import './ruletable.css';
@@ -23,21 +23,31 @@ function isEditable(path) {
   );
 }
 
-// Flatten all fields into {label, value, path, editable, level, isCollapsible, children}
 function flattenFields(obj, path = '', level = 0) {
   let rows = [];
   Object.entries(obj).forEach(([key, value]) => {
     const currentPath = path ? `${path}.${key}` : key;
+
     if (path.endsWith('ruleConfig')) {
-      // Special: allow editing key and value for ruleConfig
-      rows.push({
-        keyLabel: key,
-        value,
-        path: currentPath,
-        editable: true,
-        level,
-        isRuleConfigPair: true
-      });
+      if (key === 'allowedList' || key === 'blockList') {
+        rows.push({
+          label: 'listType',
+          value: key,
+          listValue: value,
+          path: currentPath,
+          editable: true,
+          level,
+          isDropdownList: true
+        });
+      } else {
+        rows.push({
+          label: key,
+          value,
+          path: currentPath,
+          editable: key === 'param',
+          level
+        });
+      }
     } else if (Array.isArray(value)) {
       value.forEach((item, idx) => {
         if (typeof item !== 'object' || item === null) {
@@ -77,8 +87,7 @@ function flattenFields(obj, path = '', level = 0) {
   return rows;
 }
 
-
-function RenderGridRows({ rows, handleDeepChange, handleRenameRuleConfigKey }) {
+function RenderGridRows({ rows, handleDeepChange }) {
   const [openMap, setOpenMap] = useState({});
 
   const handleToggle = (label, level) => {
@@ -89,8 +98,7 @@ function RenderGridRows({ rows, handleDeepChange, handleRenameRuleConfigKey }) {
   };
 
   return rows.map((row, idx) => {
-    // Handle ruleConfig key-value pairs first
-    if (row.isRuleConfigPair) {
+    if (row.isDropdownList) {
       return (
         <React.Fragment key={row.path}>
           <Box
@@ -102,45 +110,40 @@ function RenderGridRows({ rows, handleDeepChange, handleRenameRuleConfigKey }) {
               whiteSpace: 'nowrap'
             }}
           >
-            <TextField
-              value={row.keyLabel}
-              size="small"
-              sx={{ width: 180, marginRight: 2 }}
-              onChange={e => {
-                const newKey = e.target.value;
-                handleRenameRuleConfigKey(row.path, newKey, row.value);
-              }}
-            />
-            :
+            <Typography variant="body2">List Type:</Typography>
           </Box>
           <Box
             sx={{
               gridColumn: 2,
               display: 'flex',
-              justifyContent: 'flex-end'
+              alignItems: 'center',
+              gap: 1
             }}
           >
-            <TextField
-              id={row.path}
+            <Select
+              value={row.value}
+              onChange={e => handleDeepChange(row.path + '.listType', e.target.value)}
               size="small"
-              value={Array.isArray(row.value) ? row.value.join(', ') : row.value || ''}
-              onChange={e => {
-                handleDeepChange(
-                  row.path,
-                  typeof row.value === 'string' 
-                    ? e.target.value 
-                    : e.target.value.split(',').map(s => s.trim()).filter(Boolean)
-                );
-              }}
-              sx={{ width: 400, background: 'white' }}
-              inputProps={{ style: { textAlign: 'left' } }}
+              sx={{ minWidth: 120, marginRight: 2 }}
+            >
+              <MenuItem value="allowedList">allowedList</MenuItem>
+              <MenuItem value="blockList">blockList</MenuItem>
+            </Select>
+            <TextField
+              size="small"
+              value={
+                typeof row.listValue === 'string'
+                  ? row.listValue
+                  : (Array.isArray(row.listValue) ? row.listValue.join(', ') : '')
+              }
+              onChange={e => handleDeepChange(row.path + '.listValue', e.target.value)}
+              sx={{ width: 300 }}
             />
           </Box>
         </React.Fragment>
       );
     }
 
-    // Handle collapsible sections
     if (row.isCollapsible) {
       const isOpen = openMap[row.label + row.level] ?? row.level < 1;
       return (
@@ -162,16 +165,11 @@ function RenderGridRows({ rows, handleDeepChange, handleRenameRuleConfigKey }) {
             </IconButton>
             <Typography variant="subtitle2" sx={{ fontWeight: 500 }}>{row.label}</Typography>
           </Box>
-          {isOpen && <RenderGridRows 
-            rows={row.children} 
-            handleDeepChange={handleDeepChange}
-            handleRenameRuleConfigKey={handleRenameRuleConfigKey}
-          />}
+          {isOpen && <RenderGridRows rows={row.children} handleDeepChange={handleDeepChange} />}
         </React.Fragment>
       );
     }
 
-    // Handle normal fields
     return (
       <React.Fragment key={row.path}>
         <Box
@@ -200,7 +198,6 @@ function RenderGridRows({ rows, handleDeepChange, handleRenameRuleConfigKey }) {
             value={row.value ?? ''}
             onChange={e => handleDeepChange(row.path, e.target.value)}
             disabled={!row.editable}
-            className={row.editable ? '' : 'read-only-field'}
             sx={{
               width: 400,
               background: row.editable ? 'white' : '#f8f9fa'
@@ -212,8 +209,6 @@ function RenderGridRows({ rows, handleDeepChange, handleRenameRuleConfigKey }) {
     );
   });
 }
-
-
 
 export default function RuleTable({
   rules,
@@ -228,29 +223,37 @@ export default function RuleTable({
   setAdding,
   handleSaveNewRule
 }) {
-  const [viewMode, setViewMode] = useState('allowed');
-  const [modalViewMode, setModalViewMode] = useState('allowed');
-
-  // ✅ Declare handleRenameRuleConfigKey FIRST
-  const handleRenameRuleConfigKey = (path, newKey, value) => {
-    setFormData(prev => {
-      const newData = JSON.parse(JSON.stringify(prev));
-      const keys = path.split('.');
-      if (keys.length === 2 && keys[0] === 'ruleConfig') {
-        const oldKey = keys[1];
-        if (newKey && newKey !== oldKey && !newData.ruleConfig[newKey]) {
-          newData.ruleConfig[newKey] = value;
-          delete newData.ruleConfig[oldKey];
-        }
-      }
-      return newData;
-    });
-  };
-
   const handleDeepChange = (path, value) => {
     setFormData(prev => {
       const newData = JSON.parse(JSON.stringify(prev));
       const keys = path.replace(/\[(\d+)\]/g, '.$1').split('.');
+
+      // Handle dropdown toggle for allowedList/blockList
+      if (keys[keys.length - 1] === 'listType') {
+        const parentPath = keys.slice(0, -2).join('.');
+        const parent = getNestedObject(newData, parentPath);
+        if (parent) {
+          const oldKey = Object.keys(parent).find(k => k === 'allowedList' || k === 'blockList');
+          if (oldKey && oldKey !== value) {
+            parent[value] = parent[oldKey];
+            delete parent[oldKey];
+          }
+        }
+        return newData;
+      }
+
+      // Handle value change for the list
+      if (keys[keys.length - 2] && keys[keys.length - 1] === 'listValue') {
+        const parentPath = keys.slice(0, -2).join('.');
+        const parent = getNestedObject(newData, parentPath);
+        const listKey = Object.keys(parent).find(k => k === 'allowedList' || k === 'blockList');
+        if (listKey) {
+          parent[listKey] = value;
+        }
+        return newData;
+      }
+
+      // Default: normal deep change
       let obj = newData;
       for (let i = 0; i < keys.length - 1; i++) {
         obj = obj[keys[i]];
@@ -258,6 +261,18 @@ export default function RuleTable({
       obj[keys[keys.length - 1]] = value;
       return newData;
     });
+  };
+
+  const getNestedObject = (obj, path) => {
+    if (!path) return obj;
+    return path.split('.').reduce((o, p) => o?.[p], obj);
+  };
+
+  const getFullPath = (rule) => {
+    return rule?.operand?.operandDefinition?.[0]?.fullPath ||
+           rule?.fullPath ||
+           rule?.ruleMetadata?.orderOfOccurence?.[0]?.fullPath ||
+           '--';
   };
 
   const handleEdit = (index) => {
@@ -277,18 +292,9 @@ export default function RuleTable({
             {isDeviation ? (
               <>
                 <th>Param</th>
-                <th className="dropdown-header">
-                  <select
-                    className="column-dropdown"
-                    value={viewMode}
-                    onChange={(e) => setViewMode(e.target.value)}
-                  >
-                    <option value="allowed">Allowed</option>
-                    <option value="block">Block</option>
-                  </select>
-                </th>
+                <th>List Type</th>
+                <th>List Value</th>
                 <th>Full Path</th>
-                <th>Display Name</th>
                 <th>Actions</th>
               </>
             ) : (
@@ -302,28 +308,23 @@ export default function RuleTable({
             )}
           </tr>
         </thead>
-
         <tbody>
           {rules.map((rule, index) => (
-            <tr key={rule.ruleId}>
+            <tr key={rule.ruleId || index}>
               {isDeviation ? (
                 <>
                   <td>{rule?.ruleConfig?.param || '--'}</td>
+                  <td>{rule?.ruleConfig?.allowedList ? "allowedList" : "blockList"}</td>
                   <td>
-                    {viewMode === 'allowed'
-                      ? (rule?.ruleConfig?.allowedList
-                          ? (Array.isArray(rule.ruleConfig.allowedList)
-                              ? rule.ruleConfig.allowedList.join(', ')
-                              : rule.ruleConfig.allowedList)
-                          : '--')
-                      : (rule?.ruleConfig?.blockList
-                          ? (Array.isArray(rule.ruleConfig.blockList)
-                              ? rule.ruleConfig.blockList.join(', ')
-                              : rule.ruleConfig.blockList)
-                          : '--')}
+                    {rule?.ruleConfig?.allowedList 
+                      ? (Array.isArray(rule.ruleConfig.allowedList) 
+                          ? rule.ruleConfig.allowedList.join(', ') 
+                          : rule.ruleConfig.allowedList)
+                      : (Array.isArray(rule.ruleConfig.blockList) 
+                          ? rule.ruleConfig.blockList.join(', ') 
+                          : rule.ruleConfig.blockList)}
                   </td>
-                  <td>{rule?.ruleMetadata?.orderOfOccurence?.[0]?.fullPath || '--'}</td>
-                  <td>{rule?.ruleMetadata?.orderOfOccurence?.[0]?.displayName || '--'}</td>
+                  <td>{getFullPath(rule)}</td>
                 </>
               ) : (
                 <>
@@ -378,11 +379,7 @@ export default function RuleTable({
               p: 4
             }}
           >
-            <RenderGridRows
-              rows={rows}
-              handleDeepChange={handleDeepChange}
-              handleRenameRuleConfigKey={handleRenameRuleConfigKey}
-            />
+            <RenderGridRows rows={rows} handleDeepChange={handleDeepChange} />
           </Box>
         </DialogContent>
         <DialogActions sx={{ position: 'sticky', bottom: 0, background: '#fff', zIndex: 2 }}>
