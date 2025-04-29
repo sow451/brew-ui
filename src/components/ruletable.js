@@ -98,6 +98,89 @@ function RenderGridRows({ rows, handleDeepChange }) {
   };
 
   return rows.map((row, idx) => {
+    if (
+      row.editable &&
+      (row.value === "deviationRuleActionV2" || row.value === "nonDeviationRuleActionV2")
+    ) {
+      return (
+        <React.Fragment key={row.path}>
+          <Box
+            sx={{
+              gridColumn: 1,
+              display: 'flex',
+              alignItems: 'center',
+              pl: `${row.level * 2}em`,
+              whiteSpace: 'nowrap'
+            }}
+            component="label"
+            htmlFor={row.path}
+          >
+            {row.label}:
+          </Box>
+          <Box
+            sx={{
+              gridColumn: 2,
+              display: 'flex',
+              justifyContent: 'flex-end'
+            }}
+          >
+            <Select
+              id={row.path}
+              size="small"
+              value={row.value}
+              onChange={e => handleDeepChange(row.path, e.target.value)}
+              sx={{ width: 400, background: 'white' }}
+            >
+              <MenuItem value="deviationRuleActionV2">deviationRuleActionV2</MenuItem>
+              <MenuItem value="nonDeviationRuleActionV2">nonDeviationRuleActionV2</MenuItem>
+            </Select>
+          </Box>
+        </React.Fragment>
+      );
+    }
+    
+    if (
+      row.editable &&
+      (row.value === "deviationRuleV2" || row.value === "nonDeviationRuleV2")
+    ) {
+      return (
+        <React.Fragment key={row.path}>
+          <Box
+            sx={{
+              gridColumn: 1,
+              display: 'flex',
+              alignItems: 'center',
+              pl: `${row.level * 2}em`,
+              whiteSpace: 'nowrap'
+            }}
+            component="label"
+            htmlFor={row.path}
+          >
+            {row.label}:
+          </Box>
+          <Box
+            sx={{
+              gridColumn: 2,
+              display: 'flex',
+              justifyContent: 'flex-end'
+            }}
+          >
+            <Select
+              id={row.path}
+              size="small"
+              value={row.value}
+              onChange={e => handleDeepChange(row.path, e.target.value)}
+              sx={{ width: 400, background: 'white' }}
+            >
+              <MenuItem value="deviationRuleV2">deviationRuleV2</MenuItem>
+              <MenuItem value="nonDeviationRuleV2">nonDeviationRuleV2</MenuItem>
+            </Select>
+          </Box>
+        </React.Fragment>
+      );
+    }
+  
+    
     if (row.isDropdownList) {
       return (
         <React.Fragment key={row.path}>
