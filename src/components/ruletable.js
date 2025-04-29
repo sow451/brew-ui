@@ -113,33 +113,35 @@ function RenderGridRows({ rows, handleDeepChange }) {
             <Typography variant="body2">List Type:</Typography>
           </Box>
           <Box
-            sx={{
-              gridColumn: 2,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1
-            }}
-          >
-            <Select
-              value={row.value}
-              onChange={e => handleDeepChange(row.path + '.listType', e.target.value)}
-              size="small"
-              sx={{ minWidth: 120, marginRight: 2 }}
-            >
-              <MenuItem value="allowedList">allowedList</MenuItem>
-              <MenuItem value="blockList">blockList</MenuItem>
-            </Select>
-            <TextField
-              size="small"
-              value={
-                typeof row.listValue === 'string'
-                  ? row.listValue
-                  : (Array.isArray(row.listValue) ? row.listValue.join(', ') : '')
-              }
-              onChange={e => handleDeepChange(row.path + '.listValue', e.target.value)}
-              sx={{ width: 300 }}
-            />
-          </Box>
+  sx={{
+    gridColumn: 2,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 1,
+    justifyContent: 'flex-end' // right-align
+  }}
+>
+  <Select
+    value={row.value}
+    onChange={e => handleDeepChange(row.path + '.listType', e.target.value)}
+    size="small"
+    sx={{ minWidth: 120, marginRight: 2 }}
+  >
+    <MenuItem value="allowedList">allowedList</MenuItem>
+    <MenuItem value="blockList">blockList</MenuItem>
+  </Select>
+  <TextField
+    size="small"
+    value={
+      typeof row.listValue === 'string'
+        ? row.listValue
+        : (Array.isArray(row.listValue) ? row.listValue.join(', ') : '')
+    }
+    onChange={e => handleDeepChange(row.path + '.listValue', e.target.value)}
+    sx={{ width: 300 }}
+  />
+</Box>
+
         </React.Fragment>
       );
     }
@@ -401,7 +403,7 @@ export default function RuleTable({
         </DialogActions>
       </Dialog>
 
-      {/* Add Rule Modal */}
+      Add Rule Modal
       <Dialog open={adding} onClose={() => setAdding(false)} maxWidth="md" fullWidth>
         <DialogTitle>Add Rule</DialogTitle>
         <DialogContent dividers sx={{ maxHeight: '60vh', overflowY: 'auto', overflowX: 'auto', minWidth: 700, p: 0 }}>

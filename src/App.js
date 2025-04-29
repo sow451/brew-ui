@@ -187,7 +187,7 @@ export default function App() {
     setEditingIndex(null);
   };
 
-  // Add rule
+  //Add rule
   const handleAddRule = () => {
     setFormData({
       ruleId: `rule-${Date.now()}`,
@@ -246,7 +246,7 @@ export default function App() {
   return (
     <div className="App">
       <div className="header">
-        <h1>Rule Editor</h1>
+        <h1>Business Rule Editor</h1>
         {policyData && <h2>{policyData.policyDto?.brePolicyName || 'No Policy Loaded'}</h2>}
       </div>
       <div className="button-row">
@@ -276,9 +276,9 @@ export default function App() {
         )}
         {policyData && (
           <>
-            <button className="add-btn" onClick={handleAddRule}>
+            {/*<button className="add-btn" onClick={handleAddRule}>
               + Add Rule
-            </button>
+            </button>*/}
             <button className="download-btn" onClick={handleDownloadClick}>
               Download Policy ZIP
             </button>
