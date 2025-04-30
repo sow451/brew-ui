@@ -488,7 +488,7 @@ export default function RuleTable({
         </DialogActions>
       </Dialog>
 
-      Add Rule Modal
+      {/* Add Rule Modal */}
       <Dialog open={adding} onClose={() => setAdding(false)} maxWidth="md" fullWidth>
         <DialogTitle>Add Rule</DialogTitle>
         <DialogContent dividers sx={{ maxHeight: '60vh', overflowY: 'auto', overflowX: 'auto', minWidth: 700, p: 0 }}>
