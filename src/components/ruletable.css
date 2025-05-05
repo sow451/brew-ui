@@ -315,3 +315,8 @@
   gap: 10px;
 }
 
+.editable-input-field {
+  background-color: #fff8e1 !important; /* pale yellow */
+  font-weight: 500;
+}
+

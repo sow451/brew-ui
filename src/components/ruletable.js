@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, TextField, Box, Typography, IconButton, Select, MenuItem
+  Button, TextField, Box, Typography, IconButton, Select, MenuItem,
+  FormControlLabel, Checkbox
 } from '@mui/material';
 import { ExpandMore, ExpandLess } from '@mui/icons-material';
 import './ruletable.css';
@@ -89,6 +90,7 @@ function flattenFields(obj, path = '', level = 0) {
 
 function RenderGridRows({ rows, handleDeepChange }) {
   const [openMap, setOpenMap] = useState({});
+
 
   const handleToggle = (label, level) => {
     setOpenMap(prev => ({
@@ -265,6 +267,7 @@ function RenderGridRows({ rows, handleDeepChange }) {
             pl: `${row.level * 2}em`,
             whiteSpace: 'nowrap'
           }}
+          className={row.editable ? 'editable-row-highlight' : ''}
           component="label"
           htmlFor={row.path}
         >
@@ -276,6 +279,7 @@ function RenderGridRows({ rows, handleDeepChange }) {
             display: 'flex',
             justifyContent: 'flex-end'
           }}
+          className={row.editable ? 'editable-row-highlight' : ''}
         >
           <TextField
             id={row.path}
@@ -283,15 +287,14 @@ function RenderGridRows({ rows, handleDeepChange }) {
             value={row.value ?? ''}
             onChange={e => handleDeepChange(row.path, e.target.value)}
             disabled={!row.editable}
-            sx={{
-              width: 400,
-              background: row.editable ? 'white' : '#f8f9fa'
-            }}
+            className={row.editable ? 'editable-input-field' : ''}
+            sx={{ width: 400 }}
             inputProps={{ style: { textAlign: 'left' } }}
           />
         </Box>
       </React.Fragment>
     );
+
   });
 }
 
@@ -308,6 +311,8 @@ export default function RuleTable({
   setAdding,
   handleSaveNewRule
 }) {
+  const [showEditableOnly, setShowEditableOnly] = useState(false);
+
   const handleDeepChange = (path, value) => {
     setFormData(prev => {
       const newData = JSON.parse(JSON.stringify(prev));
@@ -367,8 +372,28 @@ export default function RuleTable({
 
   const editingRule = editingIndex !== null && rules[editingIndex] ? rules[editingIndex] : null;
   const editingRuleName = editingRule?.ruleCheckpointParameter || '';
-  const rows = editingIndex !== null && formData ? flattenFields(formData, '', 0) : [];
-
+  const fullRows = editingIndex !== null && formData ? flattenFields(formData, '', 0) : [];
+  function includeParentsOfEditable(rows) {
+    const result = [];
+  
+    function walk(row) {
+      if (row.isCollapsible && Array.isArray(row.children)) {
+        // Check if any of the children are editable (directly or deeply)
+        const filteredChildren = includeParentsOfEditable(row.children);
+        if (filteredChildren.length > 0) {
+          result.push({ ...row, children: filteredChildren });
+        }
+      } else if (row.editable) {
+        result.push(row);
+      }
+    }
+  
+    rows.forEach(walk);
+    return result;
+  }
+  
+  const rows = showEditableOnly ? includeParentsOfEditable(fullRows) : fullRows;
+  
   return (
     <div className="rule-table-container">
       <table className="rule-table">
@@ -456,6 +481,18 @@ export default function RuleTable({
             p: 0
           }}
         >
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', px: 4, pt: 2 }}>
+  <FormControlLabel
+    control={
+      <Checkbox
+        checked={showEditableOnly}
+        onChange={e => setShowEditableOnly(e.target.checked)}
+      />
+    }
+    label="Show only editable fields"
+  />
+</Box>
+
           <Box
             sx={{
               display: 'grid',
@@ -466,6 +503,7 @@ export default function RuleTable({
               p: 4
             }}
           >
+
             <RenderGridRows rows={rows} handleDeepChange={handleDeepChange} />
           </Box>
         </DialogContent>
@@ -492,6 +530,7 @@ export default function RuleTable({
       <Dialog open={adding} onClose={() => setAdding(false)} maxWidth="md" fullWidth>
         <DialogTitle>Add Rule</DialogTitle>
         <DialogContent dividers sx={{ maxHeight: '60vh', overflowY: 'auto', overflowX: 'auto', minWidth: 700, p: 0 }}>
+        
           <Box
             sx={{
               display: 'grid',
