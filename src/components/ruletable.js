@@ -131,8 +131,9 @@ function RenderGridRows({ rows, handleDeepChange }) {
               size="small"
               value={row.value}
               onChange={e => handleDeepChange(row.path, e.target.value)}
-              sx={{ width: 400, background: 'white' }}
-            >
+              className={row.editable ? 'editable-input-field' : ''}
+              sx={{ width: 400 }}
+              >
               <MenuItem value="deviationRuleActionV2">deviationRuleActionV2</MenuItem>
               <MenuItem value="nonDeviationRuleActionV2">nonDeviationRuleActionV2</MenuItem>
             </Select>
@@ -172,7 +173,8 @@ function RenderGridRows({ rows, handleDeepChange }) {
               size="small"
               value={row.value}
               onChange={e => handleDeepChange(row.path, e.target.value)}
-              sx={{ width: 400, background: 'white' }}
+              className={row.editable ? 'editable-input-field' : ''}
+              sx={{ width: 400 }}
             >
               <MenuItem value="deviationRuleV2">deviationRuleV2</MenuItem>
               <MenuItem value="nonDeviationRuleV2">nonDeviationRuleV2</MenuItem>
@@ -198,14 +200,16 @@ function RenderGridRows({ rows, handleDeepChange }) {
             <Typography variant="body2">List Type:</Typography>
           </Box>
           <Box
+  className="editable-row-highlight"
   sx={{
     gridColumn: 2,
     display: 'flex',
     alignItems: 'center',
     gap: 1,
-    justifyContent: 'flex-end' // right-align
+    justifyContent: 'flex-end'
   }}
 >
+
   <Select
     value={row.value}
     onChange={e => handleDeepChange(row.path + '.listType', e.target.value)}
