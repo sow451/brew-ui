@@ -9,54 +9,94 @@ import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
 
+// In paste-2.txt - Updated generateDiffSummary
 function generateDiffSummary(oldRules, newRules) {
-  const oldDict = {};
-  const newDict = {};
-  (oldRules || []).forEach(r => { oldDict[r.ruleId] = r; });
-  (newRules || []).forEach(r => { newDict[r.ruleId] = r; });
-  const allKeys = new Set([...Object.keys(oldDict), ...Object.keys(newDict)]);
-  const rows = [];
-  for (const ruleId of allKeys) {
-    const oldRule = oldDict[ruleId] || {};
-    const newRule = newDict[ruleId] || {};
-    // Deleted rule
-    if (!newRule.ruleId) {
-      rows.push({
-        'Rule ID': ruleId,
-        'Field': 'ALL',
-        'Old Value': 'Rule existed',
-        'New Value': 'Rule deleted'
-      });
-      continue;
+  const changes = [];
+
+  const findDeepChanges = (oldObj, newObj, path = '', ruleId = '') => {
+    // Handle cases where either value is null/undefined or non-object
+    if (
+      oldObj === null || newObj === null ||
+      typeof oldObj !== 'object' || typeof newObj !== 'object'
+    ) {
+      if (JSON.stringify(oldObj) !== JSON.stringify(newObj)) {
+        changes.push({
+          ruleId,
+          path,
+          old: oldObj,
+          new: newObj
+        });
+      }
+      return;
     }
-    // Added rule
-    if (!oldRule.ruleId) {
-      rows.push({
-        'Rule ID': ruleId,
-        'Field': 'ALL',
-        'Old Value': 'Rule did not exist',
-        'New Value': 'Rule added'
-      });
-      continue;
-    }
-    // Modified fields
-    const allFields = new Set([...Object.keys(oldRule), ...Object.keys(newRule)]);
-    allFields.delete('ruleId');
-    for (const field of allFields) {
-      const oldVal = oldRule[field];
-      const newVal = newRule[field];
-      if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
-        rows.push({
-          'Rule ID': ruleId,
-          'Field': field,
-          'Old Value': oldVal !== undefined ? JSON.stringify(oldVal) : '',
-          'New Value': newVal !== undefined ? JSON.stringify(newVal) : ''
+
+    // Get keys from both objects safely
+    const oldKeys = oldObj ? Object.keys(oldObj) : [];
+    const newKeys = newObj ? Object.keys(newObj) : [];
+    const allKeys = [...new Set([...oldKeys, ...newKeys])];
+
+    for (const key of allKeys) {
+      const currentPath = path ? `${path}.${key}` : key;
+      const oldVal = oldObj ? oldObj[key] : undefined;
+      const newVal = newObj ? newObj[key] : undefined;
+
+      // Check if either value is object before recursing
+      const isOldObject = oldVal !== null && typeof oldVal === 'object';
+      const isNewObject = newVal !== null && typeof newVal === 'object';
+
+      if (isOldObject || isNewObject) {
+        findDeepChanges(
+          isOldObject ? oldVal : {},
+          isNewObject ? newVal : {},
+          currentPath,
+          ruleId
+        );
+      } else if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+        changes.push({
+          ruleId,
+          path: currentPath,
+          old: oldVal,
+          new: newVal
         });
       }
     }
+  };
+
+  // Compare rules using maps
+  const oldMap = new Map(oldRules.map(r => [r.ruleId, r]));
+  const newMap = new Map(newRules.map(r => [r.ruleId, r]));
+
+  // Check added/removed rules
+  const allRuleIds = [...new Set([...oldMap.keys(), ...newMap.keys()])];
+  
+  for (const ruleId of allRuleIds) {
+    const oldRule = oldMap.get(ruleId) || {};
+    const newRule = newMap.get(ruleId) || {};
+    
+    if (!oldMap.has(ruleId) || !newMap.has(ruleId)) {
+      // Handle added/removed rules
+      changes.push({
+        ruleId,
+        path: '',
+        old: oldMap.has(ruleId) ? oldRule : undefined,
+        new: newMap.has(ruleId) ? newRule : undefined
+      });
+    } else {
+      // Compare existing rules, path starts empty, pass ruleId separately
+      findDeepChanges(oldRule, newRule, '', ruleId);
+    }
   }
-  return rows;
+
+  // Format for Excel output
+  return changes.map(change => ({
+    'Rule ID': change.ruleId,
+    'Field Path': change.path, // No ruleId prefix
+    'Old Value': JSON.stringify(change.old, null, 2),
+    'New Value': JSON.stringify(change.new, null, 2)
+  }));
 }
+
+
 
 function jsonToSheetAndBlob(data, sheetName = 'Sheet1') {
   const ws = XLSX.utils.json_to_sheet(data);
